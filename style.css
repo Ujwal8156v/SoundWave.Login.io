@@ -200,29 +200,21 @@ body.embedded-mode .main-wrapper {
 }
 
 .logo-wrapper {
-  width: 38px;
-  height: 38px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
+  border-radius: 50%;
+  background: var(--grad-neon);
+  padding: 2px;
+  box-shadow: 0 0 15px rgba(0, 242, 254, 0.4);
 }
-.soundwave-icon {
+.brand-logo-img {
   width: 100%;
   height: 100%;
-}
-.wave-bar {
-  transform-origin: bottom;
-  animation: logoWave 1.6s infinite ease-in-out alternate;
-}
-.b1 { animation-delay: 0.1s; }
-.b2 { animation-delay: 0.3s; }
-.b3 { animation-delay: 0.5s; }
-.b4 { animation-delay: 0.2s; }
-.b5 { animation-delay: 0.4s; }
-
-@keyframes logoWave {
-  0% { transform: scaleY(0.4); }
-  100% { transform: scaleY(1.1); }
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .brand-title {
@@ -373,11 +365,34 @@ body.embedded-mode .main-wrapper {
   border-top-right-radius: var(--radius-lg);
 }
 
-/* Card Header */
+/* Card Header & Brand Logo Badge */
 .card-header {
   text-align: center;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
 }
+
+.card-logo-badge {
+  width: 64px;
+  height: 64px;
+  margin: 0 auto 1rem;
+  border-radius: 50%;
+  padding: 3px;
+  background: var(--grad-neon);
+  box-shadow: 0 0 25px rgba(0, 242, 254, 0.4);
+  animation: logoPulse 4s infinite alternate;
+}
+.card-logo-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+@keyframes logoPulse {
+  0% { transform: scale(1); box-shadow: 0 0 20px rgba(0, 242, 254, 0.3); }
+  100% { transform: scale(1.05); box-shadow: 0 0 35px rgba(121, 40, 202, 0.6); }
+}
+
 .card-title {
   font-family: var(--font-display);
   font-size: 2.1rem;
@@ -1013,15 +1028,19 @@ body.embedded-mode .main-wrapper {
   width: 56px;
   height: 56px;
   border-radius: 14px;
+  padding: 2px;
   background: var(--grad-primary);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: white;
-  font-size: 1.8rem;
+  overflow: hidden;
 }
-.vinyl-spin {
-  animation: rotateVinyl 4s linear infinite;
+.album-logo-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 12px;
+  object-fit: cover;
+  animation: rotateVinyl 8s linear infinite;
 }
 @keyframes rotateVinyl {
   to { transform: rotate(360deg); }
