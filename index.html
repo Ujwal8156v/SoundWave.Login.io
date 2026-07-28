@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SoundWave — Universal Audio Experience Login</title>
+  <meta name="description" content="Smooth, accessible, universal authentication portal for SoundWave.io with multi-auth options, magic links, biometric passkeys, and interactive audio visualizer." />
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" integrity="sha512-iecdLmaskl7CVkqkXNQ/ZH/XLlvWZOJyj7Yy7tcenmpD1ypASozpmT/E0iPtmFIB46ZmdtAc9eNBvH0H/ZpiBw==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <!-- Live Accessibility Announcements -->
+  <div id="aria-announcer" class="sr-only" aria-live="polite"></div>
+
+  <!-- Background Interactive SoundWave Canvas -->
+  <canvas id="soundwave-canvas" aria-hidden="true"></canvas>
+
+  <!-- Ambient Glow Elements -->
+  <div class="ambient-glow glow-1" aria-hidden="true"></div>
+  <div class="ambient-glow glow-2" aria-hidden="true"></div>
+
+  <!-- Top Global Header Bar -->
+  <header class="app-header">
+    <div class="brand">
+      <div class="logo-wrapper">
+        <svg class="soundwave-icon" viewBox="0 0 40 40" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <circle cx="20" cy="20" r="18" stroke="url(#logo-grad)" stroke-width="2.5" />
+          <rect x="10" y="15" width="3" height="10" rx="1.5" fill="url(#logo-grad)" class="wave-bar b1" />
+          <rect x="15" y="10" width="3" height="20" rx="1.5" fill="url(#logo-grad)" class="wave-bar b2" />
+          <rect x="20" y="7" width="3" height="26" rx="1.5" fill="url(#logo-grad)" class="wave-bar b3" />
+          <rect x="25" y="12" width="3" height="16" rx="1.5" fill="url(#logo-grad)" class="wave-bar b4" />
+          <rect x="30" y="16" width="3" height="8" rx="1.5" fill="url(#logo-grad)" class="wave-bar b5" />
+          <defs>
+            <linearGradient id="logo-grad" x1="0" y1="0" x2="40" y2="40" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#00F2FE" />
+              <stop offset="0.5" stop-color="#4FACFE" />
+              <stop offset="1" stop-color="#7928CA" />
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <span class="brand-title">Sound<span class="brand-highlight">Wave</span></span>
+    </div>
+
+    <div class="header-controls">
+      <!-- Audio FX Synthesizer Toggle -->
+      <button id="sound-toggle-btn" class="icon-btn" aria-label="Toggle Sound Effects" data-tooltip="Audio FX">
+        <i class="fa-solid fa-volume-high" id="sound-icon"></i>
+      </button>
+
+      <!-- Theme Switcher -->
+      <button id="theme-toggle-btn" class="icon-btn" aria-label="Toggle Dark Light Theme" data-tooltip="Theme">
+        <i class="fa-solid fa-moon" id="theme-icon"></i>
+      </button>
+
+      <!-- Language Selector Dropdown -->
+      <div class="lang-dropdown">
+        <button id="lang-btn" class="lang-btn" aria-haspopup="true" aria-expanded="false">
+          <i class="fa-solid fa-globe"></i>
+          <span id="current-lang">EN</span>
+          <i class="fa-solid fa-chevron-down arrow"></i>
+        </button>
+        <div class="lang-menu" id="lang-menu" role="menu">
+          <button class="lang-option active" data-lang="EN" role="menuitem">🇺🇸 English</button>
+          <button class="lang-option" data-lang="ES" role="menuitem">🇪🇸 Español</button>
+          <button class="lang-option" data-lang="FR" role="menuitem">🇫🇷 Français</button>
+          <button class="lang-option" data-lang="DE" role="menuitem">🇩🇪 Deutsch</button>
+          <button class="lang-option" data-lang="JA" role="menuitem">🇯🇵 日本語</button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Container / Views -->
+  <main class="main-wrapper">
+    
+    <!-- LOGIN & SIGNUP CARD -->
+    <div class="auth-card" id="auth-card">
+      <div class="card-glass-glow"></div>
+
+      <!-- SSO Multi-Tenant Host Website Badge -->
+      <div id="client-website-badge" class="client-website-badge hidden">
+        <i class="fa-solid fa-link"></i>
+        <span>Authenticating for <strong id="client-website-name">Client App</strong></span>
+      </div>
+      
+      <!-- Card Header -->
+      <div class="card-header">
+        <h1 id="form-title" class="card-title">Welcome Back</h1>
+        <p id="form-subtitle" class="card-subtitle">Connect your rhythm to the SoundWave ecosystem</p>
+      </div>
+
+      <!-- Auth Method Tabs -->
+      <nav class="auth-tabs" id="auth-tabs" aria-label="Authentication Methods">
+        <button class="tab-btn active" data-tab="password" id="tab-password">
+          <i class="fa-solid fa-key"></i>
+          <span>Password</span>
+        </button>
+        <button class="tab-btn" data-tab="magic" id="tab-magic">
+          <i class="fa-solid fa-bolt"></i>
+          <span>Magic Link</span>
+        </button>
+        <button class="tab-btn" data-tab="passkey" id="tab-passkey">
+          <i class="fa-solid fa-fingerprint"></i>
+          <span>Passkey</span>
+        </button>
+      </nav>
+
+      <!-- TAB 1: PASSWORD FORM -->
+      <form id="password-form" class="auth-form tab-content active" novalidate>
+        <!-- Email/Username Input -->
+        <div class="input-group">
+          <label for="login-email" class="input-label">Email or Username</label>
+          <div class="input-field-wrapper">
+            <i class="input-icon fa-regular fa-envelope"></i>
+            <input type="email" id="login-email" class="input-control" placeholder="alex.rivera@soundwave.io" autocomplete="username" required />
+            <button type="button" class="input-clear-btn hidden" aria-label="Clear email"><i class="fa-solid fa-xmark"></i></button>
+          </div>
+          <span class="error-msg" id="email-error">Please enter a valid email or username</span>
+        </div>
+
+        <!-- Password Input -->
+        <div class="input-group">
+          <div class="label-row">
+            <label for="login-password" class="input-label">Password</label>
+            <a href="#" id="forgot-password-link" class="forgot-link">Forgot password?</a>
+          </div>
+          <div class="input-field-wrapper">
+            <i class="input-icon fa-solid fa-lock"></i>
+            <input type="password" id="login-password" class="input-control" placeholder="••••••••••••" autocomplete="current-password" required />
+            <button type="button" id="toggle-password-btn" class="password-toggle-btn" aria-label="Toggle password visibility">
+              <i class="fa-regular fa-eye" id="eye-icon"></i>
+            </button>
+          </div>
+          <span class="caps-warning hidden" id="caps-warning"><i class="fa-solid fa-triangle-exclamation"></i> Caps Lock is ON</span>
+          <span class="error-msg" id="password-error">Password must be at least 6 characters</span>
+        </div>
+
+        <!-- Remember Me & Quick Demo options -->
+        <div class="form-options">
+          <label class="custom-checkbox">
+            <input type="checkbox" id="remember-me" checked />
+            <span class="checkmark"></span>
+            <span class="label-text">Remember device</span>
+          </label>
+          <button type="button" id="demo-fill-btn" class="text-btn">
+            <i class="fa-solid fa-wand-magic-sparkles"></i> Auto Fill Demo
+          </button>
+        </div>
+
+        <!-- Submit Button -->
+        <button type="submit" id="submit-password-btn" class="btn-primary">
+          <span class="btn-text">Sign In to SoundWave</span>
+          <div class="spinner hidden"></div>
+          <i class="fa-solid fa-arrow-right btn-arrow"></i>
+        </button>
+      </form>
+
+      <!-- TAB 2: MAGIC LINK & OTP FORM -->
+      <form id="magic-form" class="auth-form tab-content" novalidate>
+        <div class="magic-intro">
+          <div class="magic-badge"><i class="fa-solid fa-shield-halved"></i> Passwordless Security</div>
+          <p>Enter your email to receive an instant 6-digit access code.</p>
+        </div>
+
+        <div class="input-group">
+          <label for="magic-email" class="input-label">Email Address</label>
+          <div class="input-field-wrapper">
+            <i class="input-icon fa-regular fa-envelope"></i>
+            <input type="email" id="magic-email" class="input-control" placeholder="user@soundwave.io" autocomplete="email" required />
+          </div>
+          <span class="error-msg" id="magic-email-error">Enter a valid email address</span>
+        </div>
+
+        <!-- OTP 6-Digit Section (Hidden until requested) -->
+        <div id="otp-section" class="otp-section hidden">
+          <label class="input-label">Enter 6-Digit Verification Pin</label>
+          <div class="otp-inputs" id="otp-inputs">
+            <input type="text" maxlength="1" pattern="[0-9]" class="otp-box" aria-label="Digit 1" inputmode="numeric" />
+            <input type="text" maxlength="1" pattern="[0-9]" class="otp-box" aria-label="Digit 2" inputmode="numeric" />
+            <input type="text" maxlength="1" pattern="[0-9]" class="otp-box" aria-label="Digit 3" inputmode="numeric" />
+            <input type="text" maxlength="1" pattern="[0-9]" class="otp-box" aria-label="Digit 4" inputmode="numeric" />
+            <input type="text" maxlength="1" pattern="[0-9]" class="otp-box" aria-label="Digit 5" inputmode="numeric" />
+            <input type="text" maxlength="1" pattern="[0-9]" class="otp-box" aria-label="Digit 6" inputmode="numeric" />
+          </div>
+          <div class="resend-wrapper">
+            <span id="resend-timer-text">Resend code in <strong id="timer-count">30</strong>s</span>
+            <button type="button" id="resend-otp-btn" class="text-btn hidden">Resend Code</button>
+          </div>
+        </div>
+
+        <button type="submit" id="submit-magic-btn" class="btn-primary">
+          <span class="btn-text">Send Access Code</span>
+          <div class="spinner hidden"></div>
+          <i class="fa-solid fa-paper-plane btn-arrow"></i>
+        </button>
+      </form>
+
+      <!-- TAB 3: PASSKEY & BIOMETRICS FORM -->
+      <div id="passkey-view" class="tab-content passkey-container">
+        <div class="biometric-scanner-card">
+          <div class="fingerprint-wrapper" id="start-biometric-btn" role="button" tabindex="0" aria-label="Authenticate with Passkey Touch ID or Face ID">
+            <div class="scan-ring ring-1"></div>
+            <div class="scan-ring ring-2"></div>
+            <div class="scan-line"></div>
+            <i class="fa-solid fa-fingerprint fingerprint-icon"></i>
+          </div>
+          <h3 class="passkey-title">Touch ID / Face ID</h3>
+          <p class="passkey-desc">Tap the sensor above to log in instantly using device passkeys.</p>
+          <div class="passkey-status" id="passkey-status-text">Ready for biometric scan</div>
+        </div>
+      </div>
+
+      <!-- SIGN UP FORM (Replaces inner content when mode switched) -->
+      <form id="signup-form" class="auth-form hidden" novalidate>
+        <div class="input-group">
+          <label for="signup-name" class="input-label">Full Name</label>
+          <div class="input-field-wrapper">
+            <i class="input-icon fa-regular fa-user"></i>
+            <input type="text" id="signup-name" class="input-control" placeholder="Alex Rivera" autocomplete="name" required />
+          </div>
+          <span class="error-msg" id="signup-name-error">Please enter your name</span>
+        </div>
+
+        <div class="input-group">
+          <label for="signup-email" class="input-label">Email Address</label>
+          <div class="input-field-wrapper">
+            <i class="input-icon fa-regular fa-envelope"></i>
+            <input type="email" id="signup-email" class="input-control" placeholder="alex@soundwave.io" autocomplete="email" required />
+          </div>
+          <span class="error-msg" id="signup-email-error">Enter a valid email</span>
+        </div>
+
+        <!-- Role Select -->
+        <div class="input-group">
+          <label for="signup-role" class="input-label">Primary Account Role</label>
+          <div class="input-field-wrapper">
+            <i class="input-icon fa-solid fa-sliders"></i>
+            <select id="signup-role" class="input-control select-control">
+              <option value="listener">🎧 Music Enthusiast / Listener</option>
+              <option value="artist">🎙️ Creator / Performing Artist</option>
+              <option value="engineer">🎛️ Audio Producer / Engineer</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="input-group">
+          <label for="signup-password" class="input-label">Password</label>
+          <div class="input-field-wrapper">
+            <i class="input-icon fa-solid fa-lock"></i>
+            <input type="password" id="signup-password" class="input-control" placeholder="Create a strong password" autocomplete="new-password" required />
+          </div>
+          <!-- Live Password Strength Meter -->
+          <div class="strength-meter">
+            <div class="strength-bars">
+              <span class="meter-bar" id="bar-1"></span>
+              <span class="meter-bar" id="bar-2"></span>
+              <span class="meter-bar" id="bar-3"></span>
+              <span class="meter-bar" id="bar-4"></span>
+            </div>
+            <span class="strength-text" id="strength-label">Password strength</span>
+          </div>
+        </div>
+
+        <div class="form-options">
+          <label class="custom-checkbox">
+            <input type="checkbox" id="terms-agree" required />
+            <span class="checkmark"></span>
+            <span class="label-text">I agree to <a href="#" class="terms-link">Terms & Privacy</a></span>
+          </label>
+        </div>
+
+        <button type="submit" id="submit-signup-btn" class="btn-primary">
+          <span class="btn-text">Create Free Account</span>
+          <div class="spinner hidden"></div>
+          <i class="fa-solid fa-user-plus btn-arrow"></i>
+        </button>
+      </form>
+
+      <!-- SOCIAL SSO SECTION -->
+      <div id="social-sso-wrapper" class="social-sso-wrapper">
+        <div class="divider">
+          <span>Or sign in with</span>
+        </div>
+
+        <div class="sso-grid">
+          <button class="sso-btn google" id="sso-google" title="Continue with Google">
+            <i class="fa-brands fa-google"></i>
+            <span>Google</span>
+          </button>
+          <button class="sso-btn spotify" id="sso-spotify" title="Continue with Spotify">
+            <i class="fa-brands fa-spotify"></i>
+            <span>Spotify</span>
+          </button>
+          <button class="sso-btn apple" id="sso-apple" title="Continue with Apple">
+            <i class="fa-brands fa-apple"></i>
+            <span>Apple</span>
+          </button>
+          <button class="sso-btn github" id="sso-github" title="Continue with GitHub">
+            <i class="fa-brands fa-github"></i>
+            <span>GitHub</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- CARD FOOTER MODE SWITCH -->
+      <div class="card-footer">
+        <p id="footer-prompt">Don't have an account? <button id="switch-mode-btn" class="switch-link">Sign Up</button></p>
+      </div>
+    </div>
+
+
+    <!-- SUCCESSFUL POST-LOGIN DASHBOARD PREVIEW -->
+    <div class="dashboard-card hidden" id="dashboard-card">
+      <div class="dash-header">
+        <div class="user-profile">
+          <div class="avatar-glow">
+            <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=150&q=80" alt="User Avatar" class="user-avatar" id="user-avatar-img" />
+            <span class="online-indicator"></span>
+          </div>
+          <div class="user-details">
+            <h2 id="dash-username">Alex Rivera</h2>
+            <span class="badge-role" id="dash-role">Pro Studio Member</span>
+          </div>
+        </div>
+        <button id="logout-btn" class="btn-secondary" title="Sign Out">
+          <i class="fa-solid fa-right-from-bracket"></i>
+          <span>Sign Out</span>
+        </button>
+      </div>
+
+      <!-- Live Player Widget -->
+      <div class="player-widget">
+        <div class="now-playing">
+          <div class="album-art">
+            <i class="fa-solid fa-compact-disc vinyl-spin"></i>
+          </div>
+          <div class="track-info">
+            <span class="now-label">NOW STREAMING</span>
+            <h3 class="track-title">Cybernetic Spectrum (Live Edit)</h3>
+            <span class="artist-name">SoundWave Originals ft. AI Synth</span>
+          </div>
+        </div>
+
+        <!-- Live Dynamic Audio Equalizer Bars -->
+        <div class="dash-equalizer">
+          <div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+          <div class="eq-bar"></div>
+        </div>
+
+        <!-- Controls -->
+        <div class="player-controls">
+          <button class="player-btn"><i class="fa-solid fa-backward-step"></i></button>
+          <button class="player-btn play-pause-btn" id="dash-play-btn"><i class="fa-solid fa-pause"></i></button>
+          <button class="player-btn"><i class="fa-solid fa-forward-step"></i></button>
+        </div>
+      </div>
+
+      <div class="dash-features">
+        <div class="feature-chip"><i class="fa-solid fa-headphones"></i> 96kHz Lossless Audio</div>
+        <div class="feature-chip"><i class="fa-solid fa-sliders"></i> 32-Band EQ Active</div>
+        <div class="feature-chip"><i class="fa-solid fa-wifi"></i> Cloud Sync Connected</div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- FORGOT PASSWORD MODAL -->
+  <div class="modal-overlay hidden" id="forgot-modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+    <div class="modal-card">
+      <button class="modal-close-btn" id="close-modal-btn" aria-label="Close modal"><i class="fa-solid fa-xmark"></i></button>
+      
+      <div id="forgot-step-1">
+        <div class="modal-icon"><i class="fa-solid fa-key"></i></div>
+        <h2 id="modal-title" class="modal-title">Reset Password</h2>
+        <p class="modal-desc">Enter your account email and we'll send you an encrypted link to reset your sound key.</p>
+        
+        <div class="input-group">
+          <label for="reset-email" class="input-label">Email Address</label>
+          <div class="input-field-wrapper">
+            <i class="input-icon fa-regular fa-envelope"></i>
+            <input type="email" id="reset-email" class="input-control" placeholder="alex@soundwave.io" required />
+          </div>
+        </div>
+
+        <button id="send-reset-btn" class="btn-primary">Send Reset Link</button>
+      </div>
+
+      <div id="forgot-step-2" class="hidden text-center">
+        <div class="modal-icon success"><i class="fa-solid fa-circle-check"></i></div>
+        <h2 class="modal-title">Link Dispatched!</h2>
+        <p class="modal-desc">We sent password recovery instructions to <strong id="reset-sent-email">alex@soundwave.io</strong>.</p>
+        <button id="close-forgot-success-btn" class="btn-secondary">Return to Login</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Main JavaScript File -->
+  <script src="app.js"></script>
+</body>
+</html>

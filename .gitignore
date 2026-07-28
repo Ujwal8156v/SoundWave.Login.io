@@ -1,0 +1,7 @@
+# System and temporary files
+powershell.exe
+.DS_Store
+Thumbs.db
+node_modules/
+dist/
+*.log
