@@ -1,6 +1,6 @@
 /**
- * SoundWave.io — Interactive Engine & Multi-Auth Controller
- * Supports standalone mode and embeddable SDK Single Sign-On (SSO) mode.
+ * SoundWave.io — Universal Single Sign-On (SSO) & Common Authentication Engine
+ * Supports standalone login portal, embeddable SDK iframe modal, and multi-tenant redirect flows.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -8,95 +8,171 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- SDK & MULTI-TENANT URL PARAMETER DETECTION ---
   const urlParams = new URLSearchParams(window.location.search);
   const isEmbedded = urlParams.get('embed') === 'true' || window.self !== window.top;
-  const appId = urlParams.get('app_id') || 'default-app';
-  const appName = urlParams.get('app_name') || null;
+  let appId = urlParams.get('app_id') || 'all-projects';
+  let appName = urlParams.get('app_name') || null;
+  const redirectUri = urlParams.get('redirect_uri') || null;
+  const initialMode = urlParams.get('mode') || 'login';
+  const initialTheme = urlParams.get('theme') || 'dark';
 
   if (isEmbedded) {
     document.body.classList.add('embedded-mode');
   }
 
-  if (appName) {
-    const badge = document.getElementById('client-website-badge');
-    const badgeName = document.getElementById('client-website-name');
-    if (badge && badgeName) {
-      badgeName.textContent = appName;
-      badge.classList.remove('hidden');
-    }
-  }
-
   // --- STATE MANAGEMENT ---
   const state = {
-    theme: 'dark',
+    theme: initialTheme,
     soundEnabled: true,
     currentTab: 'password',
-    currentMode: 'login', // 'login' | 'signup'
+    currentMode: initialMode, // 'login' | 'signup'
     lang: 'EN',
     user: null,
     otpTimer: null,
-    isPlaying: true
+    isPlaying: true,
+    activeAppId: appId,
+    activeAppName: appName || 'All Projects Hub',
+    redirectUri: redirectUri,
+    currentOtp: '749210',
+    qrSessionId: 'SW-' + Math.floor(10000 + Math.random() * 90000) + '-SSO'
   };
+
+  // Set theme from URL or default
+  document.documentElement.setAttribute('data-theme', state.theme);
+
+  // Cross-Tab Session Sync via BroadcastChannel
+  let authChannel = null;
+  if ('BroadcastChannel' in window) {
+    authChannel = new BroadcastChannel('soundwave_auth_channel');
+    authChannel.onmessage = (event) => {
+      if (event.data && event.data.type === 'SESSION_LOGIN') {
+        console.log('[SoundWave SSO] Received cross-tab login for:', event.data.user.username);
+        if (!state.user && !isEmbedded) {
+          handleLoginSuccess(event.data.user.username, event.data.user.role, false);
+        }
+      } else if (event.data && event.data.type === 'SESSION_LOGOUT') {
+        if (state.user && !isEmbedded) {
+          handleLogoutLocal();
+        }
+      }
+    };
+  }
+
+  // --- PROJECT SWITCHER (Allows testing SSO for any of user's projects) ---
+  const projectSwitchBtn = document.getElementById('project-switch-btn');
+  const projectDropdown = document.querySelector('.project-dropdown');
+  const activeProjectLabel = document.getElementById('active-project-label');
+  const projectOptions = document.querySelectorAll('.project-option');
+  const clientBadge = document.getElementById('client-website-badge');
+  const clientWebsiteName = document.getElementById('client-website-name');
+
+  function updateTenantDisplay(id, name) {
+    state.activeAppId = id;
+    state.activeAppName = name;
+
+    if (activeProjectLabel) {
+      activeProjectLabel.textContent = name;
+    }
+
+    if (clientBadge && clientWebsiteName) {
+      if (id !== 'all-projects') {
+        clientWebsiteName.textContent = name;
+        clientBadge.classList.remove('hidden');
+      } else {
+        clientBadge.classList.add('hidden');
+      }
+    }
+
+    // Update active class in project menu
+    projectOptions.forEach(opt => {
+      if (opt.dataset.appId === id) {
+        opt.classList.add('active');
+      } else {
+        opt.classList.remove('active');
+      }
+    });
+
+    updateLanguageText();
+  }
+
+  if (appName) {
+    updateTenantDisplay(appId, appName);
+  }
+
+  if (projectSwitchBtn && projectDropdown) {
+    projectSwitchBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playSound('click');
+      projectDropdown.classList.toggle('open');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!projectDropdown.contains(e.target)) {
+        projectDropdown.classList.remove('open');
+      }
+    });
+
+    projectOptions.forEach(option => {
+      option.addEventListener('click', () => {
+        playSound('click');
+        const selectedId = option.dataset.appId;
+        const selectedName = option.dataset.appName;
+        updateTenantDisplay(selectedId, selectedName);
+        projectDropdown.classList.remove('open');
+        showToast(`Tenant switched to: ${selectedName}`, 'info');
+      });
+    });
+  }
 
   // --- DICTIONARY FOR MULTILINGUAL SUPPORT ---
   const i18n = {
     EN: {
-      welcome: appName ? `Sign in to ${appName}` : "Welcome Back",
-      subWelcome: appName ? "Use your unified SoundWave ID to continue" : "Connect your rhythm to the SoundWave ecosystem",
+      welcome: () => state.activeAppId !== 'all-projects' ? `Sign in to ${state.activeAppName}` : "Universal Login",
+      subWelcome: () => state.activeAppId !== 'all-projects' ? "Use your single SoundWave ID to continue" : "One SoundWave ID to access all your connected projects",
       createAcc: "Join SoundWave",
-      subCreateAcc: "Start your high-fidelity audio journey today",
-      signInBtn: appName ? `Continue to ${appName}` : "Sign In to SoundWave",
+      subCreateAcc: "Create a single account that unlocks all SoundWave projects",
+      signInBtn: () => state.activeAppId !== 'all-projects' ? `Continue to ${state.activeAppName}` : "Sign In to SoundWave",
       signUpBtn: "Create Free Account",
       switchSignUp: "Don't have an account? <button id='switch-mode-btn' class='switch-link'>Sign Up</button>",
-      switchSignIn: "Already a member? <button id='switch-mode-btn' class='switch-link'>Sign In</button>",
-      passPlaceholder: "••••••••••••",
-      emailPlaceholder: "alex.rivera@soundwave.io"
+      switchSignIn: "Already a member? <button id='switch-mode-btn' class='switch-link'>Sign In</button>"
     },
     ES: {
-      welcome: appName ? `Iniciar sesión en ${appName}` : "Bienvenido de nuevo",
-      subWelcome: "Conecta tu ritmo al ecosistema SoundWave",
+      welcome: () => state.activeAppId !== 'all-projects' ? `Iniciar sesión en ${state.activeAppName}` : "Inicio de Sesión Universal",
+      subWelcome: () => "Usa tu ID de SoundWave para todos tus proyectos",
       createAcc: "Únete a SoundWave",
-      subCreateAcc: "Comienza tu viaje de audio de alta fidelidad hoy",
-      signInBtn: appName ? `Continuar a ${appName}` : "Iniciar sesión en SoundWave",
+      subCreateAcc: "Crea una cuenta única para desbloquear todo",
+      signInBtn: () => "Iniciar sesión en SoundWave",
       signUpBtn: "Crear cuenta gratis",
       switchSignUp: "¿No tienes una cuenta? <button id='switch-mode-btn' class='switch-link'>Regístrate</button>",
-      switchSignIn: "¿Ya eres miembro? <button id='switch-mode-btn' class='switch-link'>Iniciar sesión</button>",
-      passPlaceholder: "••••••••••••",
-      emailPlaceholder: "alex.rivera@soundwave.es"
+      switchSignIn: "¿Ya eres miembro? <button id='switch-mode-btn' class='switch-link'>Iniciar sesión</button>"
     },
     FR: {
-      welcome: appName ? `Se connecter à ${appName}` : "Bon retour",
-      subWelcome: "Connectez votre rythme à l'écosystème SoundWave",
-      createAcc: "Rejoignez SoundWave",
-      subCreateAcc: "Commencez votre voyage audio haute fidélité aujourd'hui",
-      signInBtn: appName ? `Continuer vers ${appName}` : "Se connecter à SoundWave",
+      welcome: () => state.activeAppId !== 'all-projects' ? `Connexion à ${state.activeAppName}` : "Connexion Universelle",
+      subWelcome: () => "Un seul identifiant SoundWave pour tous vos projets",
+      createAcc: "Rejoindre SoundWave",
+      subCreateAcc: "Créez un compte unique pour tout déverrouiller",
+      signInBtn: () => "Se connecter à SoundWave",
       signUpBtn: "Créer un compte gratuit",
       switchSignUp: "Pas encore de compte? <button id='switch-mode-btn' class='switch-link'>S'inscrire</button>",
-      switchSignIn: "Déjà membre? <button id='switch-mode-btn' class='switch-link'>Se connecter</button>",
-      passPlaceholder: "••••••••••••",
-      emailPlaceholder: "alex.rivera@soundwave.fr"
+      switchSignIn: "Déjà membre? <button id='switch-mode-btn' class='switch-link'>Se connecter</button>"
     },
     DE: {
-      welcome: appName ? `Bei ${appName} anmelden` : "Willkommen zurück",
-      subWelcome: "Verbinde deinen Rhythmus mit dem SoundWave-Ökosystem",
+      welcome: () => state.activeAppId !== 'all-projects' ? `Anmelden bei ${state.activeAppName}` : "Universeller Login",
+      subWelcome: () => "Eine SoundWave-ID für alle deine Projekte",
       createAcc: "SoundWave beitreten",
-      subCreateAcc: "Starte heute deine High-Fidelity-Audio-Reise",
-      signInBtn: appName ? `Weiter zu ${appName}` : "Bei SoundWave anmelden",
+      subCreateAcc: "Erstelle ein Konto für alle Plattformen",
+      signInBtn: () => "Bei SoundWave anmelden",
       signUpBtn: "Kostenloses Konto erstellen",
       switchSignUp: "Noch kein Konto? <button id='switch-mode-btn' class='switch-link'>Registrieren</button>",
-      switchSignIn: "Bereits Mitglied? <button id='switch-mode-btn' class='switch-link'>Anmelden</button>",
-      passPlaceholder: "••••••••••••",
-      emailPlaceholder: "alex.rivera@soundwave.de"
+      switchSignIn: "Bereits Mitglied? <button id='switch-mode-btn' class='switch-link'>Anmelden</button>"
     },
     JA: {
-      welcome: appName ? `${appName} にサインイン` : "おかえりなさい",
-      subWelcome: "SoundWaveエコシステムにリズムを接続",
+      welcome: () => state.activeAppId !== 'all-projects' ? `${state.activeAppName} にサインイン` : "ユニバーサルログイン",
+      subWelcome: () => "1つのSoundWave IDですべてのプロジェクトにアクセス",
       createAcc: "SoundWaveに参加",
-      subCreateAcc: "今すぐハイファイオーディオの旅を始めましょう",
-      signInBtn: appName ? `${appName} に進む` : "SoundWaveにサインイン",
+      subCreateAcc: "1つのアカウントですべてのサービスを利用可能",
+      signInBtn: () => "SoundWaveにサインイン",
       signUpBtn: "無料アカウントを作成",
       switchSignUp: "アカウントをお持ちでないですか？ <button id='switch-mode-btn' class='switch-link'>新規登録</button>",
-      switchSignIn: "すでにメンバーですか？ <button id='switch-mode-btn' class='switch-link'>サインイン</button>",
-      passPlaceholder: "••••••••••••",
-      emailPlaceholder: "alex.rivera@soundwave.jp"
+      switchSignIn: "すでにメンバーですか？ <button id='switch-mode-btn' class='switch-link'>サインイン</button>"
     }
   };
 
@@ -127,14 +203,14 @@ document.addEventListener('DOMContentLoaded', () => {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(600, now);
         osc.frequency.exponentialRampToValueAtTime(200, now + 0.05);
-        gain.gain.setValueAtTime(0.15, now);
+        gain.gain.setValueAtTime(0.12, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
         osc.start(now);
         osc.stop(now + 0.05);
       } else if (type === 'key') {
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(400 + Math.random() * 200, now);
-        gain.gain.setValueAtTime(0.04, now);
+        gain.gain.setValueAtTime(0.03, now);
         gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
         osc.start(now);
         osc.stop(now + 0.03);
@@ -162,13 +238,13 @@ document.addEventListener('DOMContentLoaded', () => {
         osc.stop(now + 0.2);
       }
     } catch (e) {
-      // Audio context fallback silent fail
+      // Silent fallback
     }
   }
 
   // --- SOUNDWAVE CANVAS BACKGROUND SIMULATOR ---
   const canvas = document.getElementById('soundwave-canvas');
-  const ctx = canvas.getContext('2d');
+  const canvasCtx = canvas.getContext('2d');
 
   let width = (canvas.width = window.innerWidth);
   let height = (canvas.height = window.innerHeight);
@@ -194,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   let step = 0;
   function renderCanvas() {
-    ctx.clearRect(0, 0, width, height);
+    canvasCtx.clearRect(0, 0, width, height);
 
     const baseAmp = 35 + typingPulse;
     if (typingPulse > 0) typingPulse *= 0.94;
@@ -206,9 +282,9 @@ document.addEventListener('DOMContentLoaded', () => {
       : ['rgba(0, 150, 255, 0.2)', 'rgba(121, 40, 202, 0.15)', 'rgba(0, 223, 216, 0.2)'];
 
     for (let i = 0; i < themeColors.length; i++) {
-      ctx.beginPath();
-      ctx.lineWidth = i === 0 ? 3 : 2;
-      ctx.strokeStyle = themeColors[i];
+      canvasCtx.beginPath();
+      canvasCtx.lineWidth = i === 0 ? 3 : 2;
+      canvasCtx.strokeStyle = themeColors[i];
 
       const waveY = height * (0.45 + i * 0.08);
       const freq = 0.003 + i * 0.001;
@@ -218,10 +294,10 @@ document.addEventListener('DOMContentLoaded', () => {
         const mouseFactor = Math.max(0, 1 - dist / 300);
         const y = waveY + Math.sin(x * freq + step + i) * (baseAmp + mouseFactor * 40);
 
-        if (x === 0) ctx.moveTo(x, y);
-        else ctx.lineTo(x, y);
+        if (x === 0) canvasCtx.moveTo(x, y);
+        else canvasCtx.lineTo(x, y);
       }
-      ctx.stroke();
+      canvasCtx.stroke();
     }
 
     const barCount = Math.floor(width / 24);
@@ -230,12 +306,12 @@ document.addEventListener('DOMContentLoaded', () => {
       const x = i * 24;
       const y = height - barHeight;
 
-      const grad = ctx.createLinearGradient(0, height, 0, y);
+      const grad = canvasCtx.createLinearGradient(0, height, 0, y);
       grad.addColorStop(0, state.theme === 'dark' ? 'rgba(121, 40, 202, 0.05)' : 'rgba(79, 172, 254, 0.05)');
       grad.addColorStop(1, state.theme === 'dark' ? 'rgba(0, 242, 254, 0.3)' : 'rgba(121, 40, 202, 0.3)');
 
-      ctx.fillStyle = grad;
-      ctx.fillRect(x, y, 16, barHeight);
+      canvasCtx.fillStyle = grad;
+      canvasCtx.fillRect(x, y, 16, barHeight);
     }
 
     requestAnimationFrame(renderCanvas);
@@ -248,161 +324,172 @@ document.addEventListener('DOMContentLoaded', () => {
     const toast = document.createElement('div');
     toast.className = `toast ${type}`;
 
-    let iconClass = 'fa-circle-info';
-    if (type === 'success') iconClass = 'fa-circle-check';
-    if (type === 'error') iconClass = 'fa-circle-xmark';
+    let icon = 'fa-solid fa-circle-info';
+    if (type === 'success') icon = 'fa-solid fa-circle-check';
+    if (type === 'error') icon = 'fa-solid fa-circle-exclamation';
 
-    toast.innerHTML = `<i class="fa-solid ${iconClass} toast-icon"></i> <span>${message}</span>`;
+    toast.innerHTML = `
+      <i class="${icon} toast-icon"></i>
+      <span>${message}</span>
+    `;
+
     toastContainer.appendChild(toast);
-
     setTimeout(() => {
       toast.style.opacity = '0';
-      toast.style.transform = 'translateY(10px)';
+      toast.style.transform = 'translateY(20px)';
+      toast.style.transition = 'all 0.3s ease';
       setTimeout(() => toast.remove(), 300);
     }, duration);
   }
 
   // --- ACCESSIBILITY ANNOUNCER ---
   const announcer = document.getElementById('aria-announcer');
-  function announce(text) {
-    if (announcer) announcer.textContent = text;
+  function announce(msg) {
+    if (announcer) {
+      announcer.textContent = msg;
+    }
   }
 
-  // --- THEME TOGGLE ---
-  const themeBtn = document.getElementById('theme-toggle-btn');
-  const themeIcon = document.getElementById('theme-icon');
-
-  themeBtn.addEventListener('click', () => {
-    playSound('click');
-    state.theme = state.theme === 'dark' ? 'light' : 'dark';
-    document.documentElement.setAttribute('data-theme', state.theme);
-
-    if (state.theme === 'light') {
-      themeIcon.className = 'fa-solid fa-sun';
-      showToast('Switched to Neon Light mode', 'info');
-    } else {
-      themeIcon.className = 'fa-solid fa-moon';
-      showToast('Switched to Soundwave Dark mode', 'info');
-    }
-  });
-
-  // --- SOUND TOGGLE ---
+  // --- HEADER CONTROLS ---
   const soundBtn = document.getElementById('sound-toggle-btn');
   const soundIcon = document.getElementById('sound-icon');
-
-  soundBtn.addEventListener('click', () => {
-    state.soundEnabled = !state.soundEnabled;
-    if (state.soundEnabled) {
-      soundIcon.className = 'fa-solid fa-volume-high';
-      playSound('click');
-      showToast('Audio feedback enabled', 'info');
-    } else {
-      soundIcon.className = 'fa-solid fa-volume-xmark';
-      showToast('Audio feedback muted', 'info');
-    }
-  });
-
-  // --- LANGUAGE DROPDOWN ---
+  const themeBtn = document.getElementById('theme-toggle-btn');
+  const themeIcon = document.getElementById('theme-icon');
   const langBtn = document.getElementById('lang-btn');
+  const langMenu = document.getElementById('lang-menu');
   const langDropdown = document.querySelector('.lang-dropdown');
-  const currentLangText = document.getElementById('current-lang');
+  const currentLangLabel = document.getElementById('current-lang');
   const langOptions = document.querySelectorAll('.lang-option');
 
-  langBtn.addEventListener('click', (e) => {
-    e.stopPropagation();
-    playSound('click');
-    const isExpanded = langBtn.getAttribute('aria-expanded') === 'true';
-    langBtn.setAttribute('aria-expanded', !isExpanded);
-    langDropdown.classList.toggle('open');
-  });
-
-  document.addEventListener('click', () => {
-    langDropdown.classList.remove('open');
-    langBtn.setAttribute('aria-expanded', 'false');
-  });
-
-  langOptions.forEach(opt => {
-    opt.addEventListener('click', () => {
+  if (soundBtn) {
+    soundBtn.addEventListener('click', () => {
+      state.soundEnabled = !state.soundEnabled;
+      soundIcon.className = state.soundEnabled ? 'fa-solid fa-volume-high' : 'fa-solid fa-volume-xmark';
       playSound('click');
-      const lang = opt.getAttribute('data-lang');
-      state.lang = lang;
-      currentLangText.textContent = lang;
-
-      langOptions.forEach(o => o.classList.remove('active'));
-      opt.classList.add('active');
-
-      updateLanguageText();
-      showToast(`Language set to ${opt.textContent.trim()}`, 'info');
+      showToast(state.soundEnabled ? 'Audio FX Enabled' : 'Audio FX Muted', 'info');
     });
-  });
+  }
+
+  if (themeBtn) {
+    themeBtn.addEventListener('click', () => {
+      playSound('click');
+      state.theme = state.theme === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', state.theme);
+      themeIcon.className = state.theme === 'dark' ? 'fa-solid fa-moon' : 'fa-solid fa-sun';
+      showToast(`Switched to ${state.theme.toUpperCase()} mode`, 'info');
+    });
+  }
+
+  if (langBtn && langDropdown) {
+    langBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      playSound('click');
+      langDropdown.classList.toggle('open');
+      langBtn.setAttribute('aria-expanded', langDropdown.classList.contains('open'));
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!langDropdown.contains(e.target)) {
+        langDropdown.classList.remove('open');
+        langBtn.setAttribute('aria-expanded', 'false');
+      }
+    });
+
+    langOptions.forEach(opt => {
+      opt.addEventListener('click', () => {
+        playSound('click');
+        langOptions.forEach(o => o.classList.remove('active'));
+        opt.classList.add('active');
+        state.lang = opt.getAttribute('data-lang');
+        currentLangLabel.textContent = state.lang;
+        langDropdown.classList.remove('open');
+        langBtn.setAttribute('aria-expanded', 'false');
+        updateLanguageText();
+        showToast(`Language updated to ${opt.textContent.trim()}`, 'info');
+      });
+    });
+  }
 
   function updateLanguageText() {
     const dict = i18n[state.lang] || i18n.EN;
-    const titleEl = document.getElementById('form-title');
-    const subTitleEl = document.getElementById('form-subtitle');
-    const submitBtnText = document.querySelector('#submit-password-btn .btn-text');
+    const title = document.getElementById('form-title');
+    const sub = document.getElementById('form-subtitle');
+    const submitPass = document.getElementById('submit-password-btn')?.querySelector('.btn-text');
     const footerPrompt = document.getElementById('footer-prompt');
 
     if (state.currentMode === 'login') {
-      titleEl.textContent = dict.welcome;
-      subTitleEl.textContent = dict.subWelcome;
-      if (submitBtnText) submitBtnText.textContent = dict.signInBtn;
+      if (title) title.textContent = typeof dict.welcome === 'function' ? dict.welcome() : dict.welcome;
+      if (sub) sub.textContent = typeof dict.subWelcome === 'function' ? dict.subWelcome() : dict.subWelcome;
+      if (submitPass) submitPass.textContent = typeof dict.signInBtn === 'function' ? dict.signInBtn() : dict.signInBtn;
       if (footerPrompt) footerPrompt.innerHTML = dict.switchSignUp;
     } else {
-      titleEl.textContent = dict.createAcc;
-      subTitleEl.textContent = dict.subCreateAcc;
+      if (title) title.textContent = dict.createAcc;
+      if (sub) sub.textContent = dict.subCreateAcc;
       if (footerPrompt) footerPrompt.innerHTML = dict.switchSignIn;
     }
-
     bindModeSwitchListener();
   }
 
-  // --- INITIALIZE LANGUAGE ON STARTUP ---
-  updateLanguageText();
-
-  // --- TAB NAVIGATION ---
-  const tabBtns = document.querySelectorAll('.tab-btn');
+  // --- AUTH TABS NAVIGATION (4 TABS) ---
+  const authTabs = document.getElementById('auth-tabs');
+  const tabButtons = document.querySelectorAll('.tab-btn');
   const tabContents = document.querySelectorAll('.tab-content');
 
-  tabBtns.forEach(btn => {
+  tabButtons.forEach(btn => {
     btn.addEventListener('click', () => {
       playSound('click');
-      const targetTab = btn.getAttribute('data-tab');
-      state.currentTab = targetTab;
+      const tabId = btn.getAttribute('data-tab');
+      state.currentTab = tabId;
 
-      tabBtns.forEach(b => b.classList.remove('active'));
+      tabButtons.forEach(b => b.classList.remove('active'));
+      tabContents.forEach(c => c.classList.remove('active'));
+
       btn.classList.add('active');
 
-      tabContents.forEach(content => {
-        content.classList.remove('active');
-        if (content.id === `${targetTab}-form` || content.id === `${targetTab}-view`) {
-          content.classList.add('active');
-        }
-      });
-
-      announce(`Selected ${targetTab} authentication mode`);
+      const targetContent = document.getElementById(`${tabId}-form`) || document.getElementById(`${tabId}-view`);
+      if (targetContent) {
+        targetContent.classList.add('active');
+      }
     });
   });
 
-  // --- PASSWORD VISIBILITY TOGGLE ---
-  const passwordInput = document.getElementById('login-password');
+  // --- TAB 1: PASSWORD FORM LOGIC ---
+  const passwordForm = document.getElementById('password-form');
+  const loginEmail = document.getElementById('login-email');
+  const loginPassword = document.getElementById('login-password');
+  const clearEmailBtn = document.querySelector('.input-clear-btn');
   const togglePassBtn = document.getElementById('toggle-password-btn');
   const eyeIcon = document.getElementById('eye-icon');
+  const capsWarning = document.getElementById('caps-warning');
+  const demoFillBtn = document.getElementById('demo-fill-btn');
+  const submitPassBtn = document.getElementById('submit-password-btn');
 
-  if (togglePassBtn) {
-    togglePassBtn.addEventListener('click', () => {
+  // Input Clear Email
+  if (loginEmail && clearEmailBtn) {
+    loginEmail.addEventListener('input', () => {
+      clearEmailBtn.classList.toggle('hidden', !loginEmail.value);
+    });
+    clearEmailBtn.addEventListener('click', () => {
+      loginEmail.value = '';
+      clearEmailBtn.classList.add('hidden');
+      loginEmail.focus();
       playSound('click');
-      const isPass = passwordInput.type === 'password';
-      passwordInput.type = isPass ? 'text' : 'password';
-      eyeIcon.className = isPass ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
-      announce(isPass ? "Password revealed" : "Password hidden");
     });
   }
 
-  // --- CAPS LOCK DETECTOR ---
-  const capsWarning = document.getElementById('caps-warning');
-  if (passwordInput) {
-    passwordInput.addEventListener('keyup', (e) => {
+  // Password Visibility Toggle
+  if (togglePassBtn && loginPassword && eyeIcon) {
+    togglePassBtn.addEventListener('click', () => {
+      playSound('click');
+      const isPass = loginPassword.type === 'password';
+      loginPassword.type = isPass ? 'text' : 'password';
+      eyeIcon.className = isPass ? 'fa-regular fa-eye-slash' : 'fa-regular fa-eye';
+    });
+  }
+
+  // Caps Lock Warning
+  if (loginPassword && capsWarning) {
+    loginPassword.addEventListener('keyup', (e) => {
       if (e.getModifierState && e.getModifierState('CapsLock')) {
         capsWarning.classList.remove('hidden');
       } else {
@@ -411,199 +498,255 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- CLEAR INPUT BUTTON ---
-  const emailInput = document.getElementById('login-email');
-  const clearEmailBtn = document.querySelector('#password-form .input-clear-btn');
-
-  if (emailInput && clearEmailBtn) {
-    emailInput.addEventListener('input', () => {
-      if (emailInput.value.length > 0) {
-        clearEmailBtn.classList.remove('hidden');
-      } else {
-        clearEmailBtn.classList.add('hidden');
-      }
-    });
-
-    clearEmailBtn.addEventListener('click', () => {
-      playSound('click');
-      emailInput.value = '';
-      clearEmailBtn.classList.add('hidden');
-      emailInput.focus();
-    });
-  }
-
-  // --- DEMO AUTO FILL BUTTON ---
-  const demoFillBtn = document.getElementById('demo-fill-btn');
+  // Auto Fill Demo Credentials
   if (demoFillBtn) {
     demoFillBtn.addEventListener('click', () => {
       playSound('click');
-      emailInput.value = "alex.rivera@soundwave.io";
-      passwordInput.value = "SoundWave#2026";
-      clearEmailBtn.classList.remove('hidden');
-      showToast('Demo credentials populated!', 'info');
+      if (loginEmail) loginEmail.value = 'alex.rivera@soundwave.io';
+      if (loginPassword) loginPassword.value = 'SoundWave2026!';
+      if (clearEmailBtn) clearEmailBtn.classList.remove('hidden');
+      showToast('Demo credentials filled! Ready to sign in.', 'info');
     });
   }
 
-  // --- OTP INPUT AUTO-ADVANCE & PASTE HANDLER ---
-  const otpBoxes = document.querySelectorAll('.otp-box');
-  otpBoxes.forEach((box, idx) => {
-    box.addEventListener('input', (e) => {
+  // Password Form Submit Handler
+  if (passwordForm) {
+    passwordForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      let isValid = true;
+
+      // Validate Email
+      const emailGroup = loginEmail.closest('.input-group');
+      if (!loginEmail.value || !loginEmail.value.includes('@')) {
+        emailGroup.classList.add('invalid');
+        isValid = false;
+      } else {
+        emailGroup.classList.remove('invalid');
+      }
+
+      // Validate Password
+      const passGroup = loginPassword.closest('.input-group');
+      if (!loginPassword.value || loginPassword.value.length < 6) {
+        passGroup.classList.add('invalid');
+        isValid = false;
+      } else {
+        passGroup.classList.remove('invalid');
+      }
+
+      if (!isValid) {
+        playSound('error');
+        showToast('Please check the highlighted fields', 'error');
+        return;
+      }
+
+      // Trigger Spinner & Simulate Auth
+      playSound('click');
+      setLoadingState(submitPassBtn, true);
+
+      setTimeout(() => {
+        setLoadingState(submitPassBtn, false);
+        const namePart = loginEmail.value.split('@')[0];
+        const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+        handleLoginSuccess(formattedName || 'Alex Rivera', 'Universal Pro Member');
+      }, 1200);
+    });
+  }
+
+  // --- TAB 2: MAGIC LINK & OTP LOGIC ---
+  const magicForm = document.getElementById('magic-form');
+  const magicEmail = document.getElementById('magic-email');
+  const otpSection = document.getElementById('otp-section');
+  const otpInputs = document.querySelectorAll('.otp-box');
+  const submitMagicBtn = document.getElementById('submit-magic-btn');
+  const demoFillOtpBtn = document.getElementById('demo-fill-otp-btn');
+  const resendOtpBtn = document.getElementById('resend-otp-btn');
+  const timerCount = document.getElementById('timer-count');
+  let isOtpStep = false;
+
+  // Auto-focus progression for OTP inputs
+  otpInputs.forEach((input, idx) => {
+    input.addEventListener('input', (e) => {
+      playSound('key');
       const val = e.target.value;
-      if (val && idx < otpBoxes.length - 1) {
-        otpBoxes[idx + 1].focus();
+      if (val && idx < otpInputs.length - 1) {
+        otpInputs[idx + 1].focus();
+      }
+
+      // Auto-submit when all 6 digits entered
+      const allFilled = Array.from(otpInputs).every(i => i.value.length === 1);
+      if (allFilled) {
+        triggerOtpVerification();
       }
     });
 
-    box.addEventListener('keydown', (e) => {
-      if (e.key === 'Backspace' && !box.value && idx > 0) {
-        otpBoxes[idx - 1].focus();
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Backspace' && !input.value && idx > 0) {
+        otpInputs[idx - 1].focus();
       }
     });
 
-    box.addEventListener('paste', (e) => {
+    // Handle paste event (e.g. pasted 6-digit code)
+    input.addEventListener('paste', (e) => {
       e.preventDefault();
       const pasteData = (e.clipboardData || window.clipboardData).getData('text').trim();
       if (/^\d{6}$/.test(pasteData)) {
         pasteData.split('').forEach((char, i) => {
-          if (otpBoxes[i]) otpBoxes[i].value = char;
+          if (otpInputs[i]) otpInputs[i].value = char;
         });
-        otpBoxes[5].focus();
-        showToast('OTP code pasted automatically', 'success');
+        otpInputs[5]?.focus();
+        showToast('Access code pasted!', 'info');
+        triggerOtpVerification();
       }
     });
   });
 
-  // --- MAGIC LINK / OTP TIMER ---
-  const magicForm = document.getElementById('magic-form');
-  const otpSection = document.getElementById('otp-section');
-  const magicEmail = document.getElementById('magic-email');
-  const submitMagicBtn = document.getElementById('submit-magic-btn');
-  const magicBtnText = submitMagicBtn.querySelector('.btn-text');
-  const timerCount = document.getElementById('timer-count');
-  const resendBtn = document.getElementById('resend-otp-btn');
-  const resendText = document.getElementById('resend-timer-text');
+  if (demoFillOtpBtn) {
+    demoFillOtpBtn.addEventListener('click', () => {
+      playSound('click');
+      const demoCode = state.currentOtp;
+      demoCode.split('').forEach((char, i) => {
+        if (otpInputs[i]) otpInputs[i].value = char;
+      });
+      showToast(`Auto-filled 6-digit OTP code: ${demoCode}`, 'info');
+      triggerOtpVerification();
+    });
+  }
 
   function startOtpTimer() {
-    let seconds = 30;
-    resendBtn.classList.add('hidden');
-    resendText.classList.remove('hidden');
-    timerCount.textContent = seconds;
+    let timeLeft = 30;
+    if (resendOtpBtn) resendOtpBtn.classList.add('hidden');
+    if (timerCount) timerCount.textContent = timeLeft;
 
     clearInterval(state.otpTimer);
     state.otpTimer = setInterval(() => {
-      seconds--;
-      timerCount.textContent = seconds;
-      if (seconds <= 0) {
+      timeLeft--;
+      if (timerCount) timerCount.textContent = timeLeft;
+
+      if (timeLeft <= 0) {
         clearInterval(state.otpTimer);
-        resendText.classList.add('hidden');
-        resendBtn.classList.remove('hidden');
+        if (resendOtpBtn) resendOtpBtn.classList.remove('hidden');
+        const timerText = document.getElementById('resend-timer-text');
+        if (timerText) timerText.classList.add('hidden');
       }
     }, 1000);
   }
 
-  magicForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    if (!magicEmail.value || !magicEmail.value.includes('@')) {
-      showToast('Please enter a valid email address', 'error');
-      playSound('error');
-      return;
-    }
-
-    playSound('click');
-    const spinner = submitMagicBtn.querySelector('.spinner');
-    spinner.classList.remove('hidden');
-
-    setTimeout(() => {
-      spinner.classList.add('hidden');
-      if (otpSection.classList.contains('hidden')) {
-        otpSection.classList.remove('hidden');
-        magicBtnText.textContent = "Verify & Access";
-        startOtpTimer();
-        showToast(`Verification code sent to ${magicEmail.value}`, 'success');
-      } else {
-        const otpCode = Array.from(otpBoxes).map(b => b.value).join('');
-        if (otpCode.length === 6) {
-          handleLoginSuccess("Magic Link User", "Verified Member");
-        } else {
-          showToast('Please enter all 6 digits of the PIN', 'error');
-          playSound('error');
-        }
-      }
-    }, 1200);
-  });
-
-  if (resendBtn) {
-    resendBtn.addEventListener('click', () => {
+  if (resendOtpBtn) {
+    resendOtpBtn.addEventListener('click', () => {
       playSound('click');
+      state.currentOtp = Math.floor(100000 + Math.random() * 900000).toString();
+      showToast(`New code dispatched to ${magicEmail.value}! (Demo OTP: ${state.currentOtp})`, 'info');
+      const timerText = document.getElementById('resend-timer-text');
+      if (timerText) timerText.classList.remove('hidden');
       startOtpTimer();
-      showToast('New verification code sent!', 'info');
     });
   }
 
-  // --- BIOMETRIC / PASSKEY SIMULATION ---
-  const biometricBtn = document.getElementById('start-biometric-btn');
-  const passkeyStatus = document.getElementById('passkey-status-text');
+  if (magicForm) {
+    magicForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!isOtpStep) {
+        if (!magicEmail.value || !magicEmail.value.includes('@')) {
+          magicEmail.closest('.input-group').classList.add('invalid');
+          playSound('error');
+          return;
+        }
+        magicEmail.closest('.input-group').classList.remove('invalid');
+        playSound('click');
+        setLoadingState(submitMagicBtn, true);
 
-  if (biometricBtn) {
-    biometricBtn.addEventListener('click', () => {
+        setTimeout(() => {
+          setLoadingState(submitMagicBtn, false);
+          isOtpStep = true;
+          otpSection.classList.remove('hidden');
+          submitMagicBtn.querySelector('.btn-text').textContent = 'Verify & Authenticate';
+          showToast(`Access code sent to ${magicEmail.value}! (Demo OTP: ${state.currentOtp})`, 'info', 6000);
+          startOtpTimer();
+          otpInputs[0]?.focus();
+        }, 1000);
+      } else {
+        triggerOtpVerification();
+      }
+    });
+  }
+
+  function triggerOtpVerification() {
+    const enteredOtp = Array.from(otpInputs).map(i => i.value).join('');
+    if (enteredOtp.length < 6) {
+      playSound('error');
+      showToast('Please enter the full 6-digit access code', 'error');
+      return;
+    }
+
+    setLoadingState(submitMagicBtn, true);
+    setTimeout(() => {
+      setLoadingState(submitMagicBtn, false);
+      const userPrefix = magicEmail.value.split('@')[0] || 'Member';
+      handleLoginSuccess(userPrefix, 'OTP Verified User');
+    }, 1200);
+  }
+
+  // --- TAB 3: PASSKEY & BIOMETRIC AUTH ---
+  const startBiometricBtn = document.getElementById('start-biometric-btn');
+  const passkeyStatusText = document.getElementById('passkey-status-text');
+
+  if (startBiometricBtn) {
+    startBiometricBtn.addEventListener('click', () => {
       playSound('click');
-      biometricBtn.classList.add('scanning');
-      passkeyStatus.textContent = "Scanning Touch ID / Face ID sensor...";
+      startBiometricBtn.classList.add('scanning');
+      if (passkeyStatusText) {
+        passkeyStatusText.textContent = 'Verifying Touch ID / Face ID...';
+        passkeyStatusText.style.color = 'var(--accent-purple)';
+      }
+
+      // Check if browser supports WebAuthn credentials
+      if (window.PublicKeyCredential) {
+        console.log('[SoundWave Auth] WebAuthn API available on client device');
+      }
 
       setTimeout(() => {
-        biometricBtn.classList.remove('scanning');
-        passkeyStatus.textContent = "Biometric Passkey Verified!";
-        handleLoginSuccess("Alex Rivera (Passkey)", "Biometric VIP");
-      }, 1800);
+        startBiometricBtn.classList.remove('scanning');
+        if (passkeyStatusText) {
+          passkeyStatusText.textContent = 'Biometric Authenticated! ✨';
+          passkeyStatusText.style.color = '#10B981';
+        }
+        handleLoginSuccess('Alex (TouchID)', 'Biometric Secure Keyholder');
+      }, 1600);
     });
   }
 
-  // --- PASSWORD FORM SUBMISSION ---
-  const passwordForm = document.getElementById('password-form');
-  const submitPasswordBtn = document.getElementById('submit-password-btn');
+  // --- TAB 4: QR CODE SCANNING FAST LOGIN ---
+  const simulateQrScanBtn = document.getElementById('simulate-qr-scan-btn');
+  const qrSessionLabel = document.getElementById('qr-session-id');
 
-  passwordForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const emailVal = emailInput.value.trim();
-    const passVal = passwordInput.value.trim();
-    let valid = true;
+  if (qrSessionLabel) {
+    qrSessionLabel.textContent = state.qrSessionId;
+  }
 
-    const emailGroup = emailInput.closest('.input-group');
-    const passGroup = passwordInput.closest('.input-group');
+  if (simulateQrScanBtn) {
+    simulateQrScanBtn.addEventListener('click', () => {
+      playSound('click');
+      showToast('📱 QR Code scanned by SoundWave Mobile App! Verifying...', 'info');
+      simulateQrScanBtn.disabled = true;
+      simulateQrScanBtn.innerHTML = '<div class="spinner"></div> <span>Approving Session...</span>';
 
-    if (!emailVal) {
-      emailGroup.classList.add('invalid');
-      valid = false;
-    } else {
-      emailGroup.classList.remove('invalid');
-    }
+      setTimeout(() => {
+        simulateQrScanBtn.disabled = false;
+        simulateQrScanBtn.innerHTML = '<i class="fa-solid fa-circle-check"></i> <span>Session Approved!</span>';
+        handleLoginSuccess('Alex (Mobile Scan)', 'Mobile Authenticated User');
+      }, 1500);
+    });
+  }
 
-    if (!passVal || passVal.length < 6) {
-      passGroup.classList.add('invalid');
-      valid = false;
-    } else {
-      passGroup.classList.remove('invalid');
-    }
-
-    if (!valid) {
-      playSound('error');
-      showToast('Please fix invalid fields', 'error');
-      return;
-    }
-
-    playSound('click');
-    const spinner = submitPasswordBtn.querySelector('.spinner');
-    spinner.classList.remove('hidden');
-
-    setTimeout(() => {
-      spinner.classList.add('hidden');
-      handleLoginSuccess(emailVal.split('@')[0] || "Alex Rivera", "Studio Pro Member");
-    }, 1200);
-  });
-
-  // --- PASSWORD STRENGTH METER (SIGN UP) ---
-  const signupPassInput = document.getElementById('signup-password');
-  const meterBars = [
+  // --- SIGN UP FORM & PASSWORD STRENGTH METER ---
+  const signupForm = document.getElementById('signup-form');
+  const signupName = document.getElementById('signup-name');
+  const signupEmail = document.getElementById('signup-email');
+  const signupRole = document.getElementById('signup-role');
+  const signupPass = document.getElementById('signup-password');
+  const termsAgree = document.getElementById('terms-agree');
+  const submitSignupBtn = document.getElementById('submit-signup-btn');
+  const strengthBars = [
     document.getElementById('bar-1'),
     document.getElementById('bar-2'),
     document.getElementById('bar-3'),
@@ -611,90 +754,107 @@ document.addEventListener('DOMContentLoaded', () => {
   ];
   const strengthLabel = document.getElementById('strength-label');
 
-  if (signupPassInput) {
-    signupPassInput.addEventListener('input', () => {
-      const val = signupPassInput.value;
+  if (signupPass) {
+    signupPass.addEventListener('input', () => {
+      const val = signupPass.value;
       let score = 0;
 
-      if (val.length >= 6) score++;
-      if (val.length >= 10) score++;
-      if (/[A-Z]/.test(val) && /[0-9]/.test(val)) score++;
+      if (val.length >= 8) score++;
+      if (/[A-Z]/.test(val)) score++;
+      if (/[0-9]/.test(val)) score++;
       if (/[^A-Za-z0-9]/.test(val)) score++;
 
-      const colors = ['#FF4D4D', '#F59E0B', '#10B981', '#00DFD8'];
-      const labels = ['Weak Password', 'Fair Password', 'Good Password', 'Strong Password'];
-
-      meterBars.forEach((bar, idx) => {
+      strengthBars.forEach((bar, idx) => {
         if (bar) {
           if (idx < score) {
-            bar.style.backgroundColor = colors[score - 1] || colors[0];
+            bar.style.background = score <= 1 ? '#FF4D4D' : score <= 2 ? '#F59E0B' : score === 3 ? '#00F2FE' : '#10B981';
           } else {
-            bar.style.backgroundColor = 'var(--input-border)';
+            bar.style.background = 'var(--input-border)';
           }
         }
       });
 
       if (strengthLabel) {
-        strengthLabel.textContent = val ? labels[score - 1] || labels[0] : 'Password strength';
-        strengthLabel.style.color = val ? (colors[score - 1] || colors[0]) : 'var(--text-muted)';
+        const labels = ['Too weak', 'Weak', 'Good password', 'Strong password', 'Very secure'];
+        strengthLabel.textContent = val ? labels[score] : 'Password strength';
+        strengthLabel.style.color = score <= 1 ? '#FF4D4D' : score === 2 ? '#F59E0B' : '#10B981';
       }
     });
   }
 
-  // --- SIGN UP FORM SUBMISSION ---
-  const signupForm = document.getElementById('signup-form');
-  const submitSignupBtn = document.getElementById('submit-signup-btn');
-
   if (signupForm) {
     signupForm.addEventListener('submit', (e) => {
       e.preventDefault();
-      const name = document.getElementById('signup-name').value.trim();
-      const email = document.getElementById('signup-email').value.trim();
-      const role = document.getElementById('signup-role').value;
-      const terms = document.getElementById('terms-agree').checked;
+      let valid = true;
 
-      if (!name || !email || !terms) {
-        showToast('Please fill required fields and agree to Terms', 'error');
+      if (!signupName.value.trim()) {
+        signupName.closest('.input-group').classList.add('invalid');
+        valid = false;
+      } else {
+        signupName.closest('.input-group').classList.remove('invalid');
+      }
+
+      if (!signupEmail.value || !signupEmail.value.includes('@')) {
+        signupEmail.closest('.input-group').classList.add('invalid');
+        valid = false;
+      } else {
+        signupEmail.closest('.input-group').classList.remove('invalid');
+      }
+
+      if (!signupPass.value || signupPass.value.length < 6) {
+        signupPass.closest('.input-group').classList.add('invalid');
+        valid = false;
+      } else {
+        signupPass.closest('.input-group').classList.remove('invalid');
+      }
+
+      if (!termsAgree.checked) {
+        showToast('Please agree to the Terms & Privacy', 'error');
+        valid = false;
+      }
+
+      if (!valid) {
         playSound('error');
         return;
       }
 
       playSound('click');
-      const spinner = submitSignupBtn.querySelector('.spinner');
-      spinner.classList.remove('hidden');
+      setLoadingState(submitSignupBtn, true);
 
       setTimeout(() => {
-        spinner.classList.add('hidden');
-        handleLoginSuccess(name, `${role.toUpperCase()} Member`);
-      }, 1400);
+        setLoadingState(submitSignupBtn, false);
+        const roleLabel = signupRole.options[signupRole.selectedIndex].text.replace(/^[^\w]+/, '').trim();
+        handleLoginSuccess(signupName.value.trim(), roleLabel);
+      }, 1300);
     });
   }
 
-  // --- MODE SWITCHER (LOGIN <-> SIGNUP) ---
+  // --- TOGGLE LOGIN / SIGNUP MODE ---
   function bindModeSwitchListener() {
     const switchBtn = document.getElementById('switch-mode-btn');
     if (switchBtn) {
-      switchBtn.addEventListener('click', (e) => {
+      switchBtn.onclick = (e) => {
         e.preventDefault();
         playSound('click');
-        toggleAuthMode();
-      });
+        toggleMode();
+      };
     }
   }
 
-  function toggleAuthMode() {
-    const authTabs = document.getElementById('auth-tabs');
-    const passwordForm = document.getElementById('password-form');
-    const magicForm = document.getElementById('magic-form');
-    const passkeyView = document.getElementById('passkey-view');
-    const signupForm = document.getElementById('signup-form');
+  function toggleMode() {
+    const socialWrapper = document.getElementById('social-sso-wrapper');
+    const passwordFormElem = document.getElementById('password-form');
+    const magicFormElem = document.getElementById('magic-form');
+    const passkeyViewElem = document.getElementById('passkey-view');
+    const qrViewElem = document.getElementById('qr-view');
 
     if (state.currentMode === 'login') {
       state.currentMode = 'signup';
       authTabs.classList.add('hidden');
-      passwordForm.classList.remove('active');
-      magicForm.classList.remove('active');
-      passkeyView.classList.remove('active');
+      passwordFormElem?.classList.remove('active');
+      magicFormElem?.classList.remove('active');
+      passkeyViewElem?.classList.remove('active');
+      qrViewElem?.classList.remove('active');
       signupForm.classList.remove('hidden');
       signupForm.classList.add('active');
     } else {
@@ -711,6 +871,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   bindModeSwitchListener();
 
+  // If initial mode from URL was signup
+  if (initialMode === 'signup') {
+    toggleMode();
+  }
+
   // --- SOCIAL SSO BUTTONS ---
   const ssoButtons = document.querySelectorAll('.sso-btn');
   ssoButtons.forEach(btn => {
@@ -722,8 +887,8 @@ document.addEventListener('DOMContentLoaded', () => {
       btn.style.opacity = '0.6';
       setTimeout(() => {
         btn.style.opacity = '1';
-        handleLoginSuccess(`Alex (${provider})`, `Verified ${provider} User`);
-      }, 1500);
+        handleLoginSuccess(`Alex (${provider})`, `Verified ${provider} Member`);
+      }, 1200);
     });
   });
 
@@ -771,56 +936,92 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- LOGIN SUCCESS & DASHBOARD TRANSITION ---
+  // --- LOGIN SUCCESS & DISPATCH ENGINE ---
   const authCard = document.getElementById('auth-card');
   const dashboardCard = document.getElementById('dashboard-card');
   const dashUsername = document.getElementById('dash-username');
   const dashRole = document.getElementById('dash-role');
   const logoutBtn = document.getElementById('logout-btn');
 
-  function handleLoginSuccess(username, role) {
+  function handleLoginSuccess(username, role, broadcast = true) {
     playSound('success');
-    showToast(`Welcome back, ${username}!`, 'success', 4000);
+    showToast(`Welcome, ${username}! Authenticated across all projects.`, 'success', 4000);
 
     const userData = {
       username: username,
       role: role,
-      token: 'sw_token_' + Math.random().toString(36).substr(2, 9),
+      token: 'sw_token_' + Math.random().toString(36).substr(2, 10),
+      appId: state.activeAppId,
       authenticatedAt: new Date().toISOString()
     };
 
     state.user = userData;
 
-    // If running inside SDK iframe on client website -> send postMessage to host site!
+    // Save global SSO session locally
+    try {
+      localStorage.setItem('soundwave_global_user', JSON.stringify(userData));
+      localStorage.setItem(`soundwave_auth_session_${state.activeAppId}`, JSON.stringify(userData));
+    } catch (e) {
+      console.warn('Storage sync warning:', e);
+    }
+
+    // Broadcast across all other open browser tabs
+    if (broadcast && authChannel) {
+      authChannel.postMessage({
+        type: 'SESSION_LOGIN',
+        user: userData,
+        appId: state.activeAppId
+      });
+    }
+
+    // 1. If running inside SDK iframe on client website -> send postMessage to host site!
     if (isEmbedded && window.parent) {
       window.parent.postMessage({
         source: 'SOUNDWAVE_AUTH',
         type: 'LOGIN_SUCCESS',
         user: userData,
-        appId: appId
+        token: userData.token,
+        appId: state.activeAppId
       }, '*');
       return;
     }
 
-    // Otherwise standalone mode -> flip card to player dashboard
-    dashUsername.textContent = username;
-    dashRole.textContent = role;
+    // 2. If a redirect_uri was provided via URL parameter -> redirect safely back to client app!
+    if (state.redirectUri) {
+      showToast(`Redirecting back to ${state.activeAppName}...`, 'info');
+      setTimeout(() => {
+        const delimiter = state.redirectUri.includes('?') ? '&' : '?';
+        window.location.href = `${state.redirectUri}${delimiter}auth_token=${encodeURIComponent(userData.token)}&user=${encodeURIComponent(JSON.stringify(userData))}&app_id=${encodeURIComponent(state.activeAppId)}`;
+      }, 1000);
+      return;
+    }
 
-    authCard.style.transform = 'scale(0.9) rotateY(15deg)';
-    authCard.style.opacity = '0';
+    // 3. Otherwise standalone mode -> flip card to player dashboard & SSO launchpad
+    if (dashUsername) dashUsername.textContent = username;
+    if (dashRole) dashRole.textContent = role;
 
-    setTimeout(() => {
-      authCard.classList.add('hidden');
-      dashboardCard.classList.remove('hidden');
-      dashboardCard.style.transform = 'scale(1) rotateY(0)';
-      dashboardCard.style.opacity = '1';
-      announce(`Logged in as ${username}. Welcome to SoundWave Player.`);
-    }, 400);
+    if (authCard && dashboardCard) {
+      authCard.style.transform = 'scale(0.9) rotateY(15deg)';
+      authCard.style.opacity = '0';
+
+      setTimeout(() => {
+        authCard.classList.add('hidden');
+        dashboardCard.classList.remove('hidden');
+        dashboardCard.style.transform = 'scale(1) rotateY(0)';
+        dashboardCard.style.opacity = '1';
+        announce(`Logged in as ${username}. Welcome to SoundWave Universal Portal.`);
+      }, 350);
+    }
   }
 
-  if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
-      playSound('click');
+  function handleLogoutLocal() {
+    state.user = null;
+    try {
+      localStorage.removeItem('soundwave_global_user');
+      localStorage.removeItem(`soundwave_auth_session_${state.activeAppId}`);
+    } catch (e) {}
+
+    if (dashboardCard && authCard) {
       dashboardCard.style.opacity = '0';
       dashboardCard.style.transform = 'scale(0.95)';
 
@@ -831,29 +1032,67 @@ document.addEventListener('DOMContentLoaded', () => {
         authCard.style.opacity = '1';
         showToast('Signed out safely', 'info');
       }, 300);
+    }
+  }
+
+  if (logoutBtn) {
+    logoutBtn.addEventListener('click', () => {
+      playSound('click');
+      if (authChannel) {
+        authChannel.postMessage({ type: 'SESSION_LOGOUT' });
+      }
+      handleLogoutLocal();
     });
   }
 
-  // Player Play/Pause Button
-  const dashPlayBtn = document.getElementById('dash-play-btn');
-  const vinylDisc = document.querySelector('.vinyl-spin');
+  // Helper function for button spinner state
+  function setLoadingState(btn, isLoading) {
+    if (!btn) return;
+    const textSpan = btn.querySelector('.btn-text');
+    const spinner = btn.querySelector('.spinner');
+    const arrow = btn.querySelector('.btn-arrow');
 
+    btn.disabled = isLoading;
+    if (isLoading) {
+      if (textSpan) textSpan.style.opacity = '0.5';
+      if (spinner) spinner.classList.remove('hidden');
+      if (arrow) arrow.classList.add('hidden');
+    } else {
+      if (textSpan) textSpan.style.opacity = '1';
+      if (spinner) spinner.classList.add('hidden');
+      if (arrow) arrow.classList.remove('hidden');
+    }
+  }
+
+  // Player Play/Pause Button in Dashboard
+  const dashPlayBtn = document.getElementById('dash-play-btn');
   if (dashPlayBtn) {
     dashPlayBtn.addEventListener('click', () => {
       playSound('click');
       state.isPlaying = !state.isPlaying;
       const playIcon = dashPlayBtn.querySelector('i');
+      const albumImg = document.querySelector('.album-logo-img');
 
       if (state.isPlaying) {
         playIcon.className = 'fa-solid fa-pause';
-        if (vinylDisc) vinylDisc.style.animationPlayState = 'running';
+        if (albumImg) albumImg.style.animationPlayState = 'running';
         showToast('Audio playback resumed', 'info');
       } else {
         playIcon.className = 'fa-solid fa-play';
-        if (vinylDisc) vinylDisc.style.animationPlayState = 'paused';
+        if (albumImg) albumImg.style.animationPlayState = 'paused';
         showToast('Audio playback paused', 'info');
       }
     });
   }
+
+  // Check if active session already exists in localStorage on startup
+  try {
+    const existingSession = localStorage.getItem('soundwave_global_user');
+    if (existingSession && !isEmbedded && !redirectUri) {
+      const parsed = JSON.parse(existingSession);
+      console.log('[SoundWave SSO] Restoring session for:', parsed.username);
+      // Populate dashboard but leave card interactive
+    }
+  } catch (e) {}
 
 });

@@ -1,73 +1,176 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>SoundWave Auth — Multi-Website Integration Demo & SDK Hub</title>
+  <title>SoundWave SSO — Multi-Project Developer Hub & Integration Playground</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
   
   <style>
     :root {
       --bg: #0B0E17;
-      --card-bg: rgba(18, 24, 38, 0.8);
+      --card-bg: rgba(18, 24, 38, 0.82);
       --border: rgba(255, 255, 255, 0.12);
       --accent-cyan: #00F2FE;
       --accent-blue: #4FACFE;
       --accent-purple: #7928CA;
+      --accent-magenta: #FF0080;
       --grad-primary: linear-gradient(135deg, #00F2FE, #4FACFE, #7928CA);
+      --font-display: 'Outfit', sans-serif;
+      --font-main: 'Plus Jakarta Sans', sans-serif;
+      --font-mono: 'JetBrains Mono', monospace;
     }
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
-      font-family: 'Plus Jakarta Sans', sans-serif;
+      font-family: var(--font-main);
       background-color: var(--bg);
       color: #F3F4F6;
       min-height: 100vh;
-      padding: 2rem;
+      padding: 2rem 1.5rem;
+      background-image: 
+        radial-gradient(at 0% 0%, rgba(121, 40, 202, 0.2) 0px, transparent 50%),
+        radial-gradient(at 100% 100%, rgba(0, 242, 254, 0.15) 0px, transparent 50%);
+      background-attachment: fixed;
     }
+    .container {
+      max-width: 1280px;
+      margin: 0 auto;
+    }
+    
     header {
-      max-width: 1200px;
-      margin: 0 auto 3rem;
-      text-align: center;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2.5rem;
+      flex-wrap: wrap;
+      gap: 1.5rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 1.5rem;
+    }
+    .header-brand {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+    }
+    .logo-badge {
+      width: 48px;
+      height: 48px;
+      border-radius: 50%;
+      background: linear-gradient(90deg, #00F2FE, #4FACFE, #7928CA, #FF0080);
+      padding: 2px;
+      box-shadow: 0 0 20px rgba(0, 242, 254, 0.35);
+    }
+    .logo-badge img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
     }
     h1 {
-      font-family: 'Outfit', sans-serif;
-      font-size: 2.75rem;
+      font-family: var(--font-display);
+      font-size: 2.2rem;
       font-weight: 800;
       background: var(--grad-primary);
       -webkit-background-clip: text;
       -webkit-text-fill-color: transparent;
-      margin-bottom: 0.5rem;
+      line-height: 1.2;
     }
     p.subtitle {
       color: #9CA3AF;
-      font-size: 1.1rem;
+      font-size: 0.95rem;
     }
     
+    .global-sso-bar {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      background: rgba(18, 24, 38, 0.9);
+      border: 1px solid var(--border);
+      border-radius: 30px;
+      padding: 0.5rem 1.25rem;
+    }
+    .sso-indicator {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.88rem;
+      font-weight: 600;
+    }
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: #FF4D4D;
+      box-shadow: 0 0 10px #FF4D4D;
+    }
+    .status-dot.active {
+      background: #10B981;
+      box-shadow: 0 0 10px #10B981;
+    }
+    .btn-return-login {
+      background: rgba(0, 242, 254, 0.15);
+      border: 1px solid rgba(0, 242, 254, 0.3);
+      color: var(--accent-cyan);
+      text-decoration: none;
+      padding: 0.45rem 0.9rem;
+      border-radius: 20px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.2s;
+    }
+    .btn-return-login:hover {
+      background: var(--accent-cyan);
+      color: #000;
+    }
+
+    .section-title {
+      font-family: var(--font-display);
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    /* Multi-Project Grid */
     .demo-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-      gap: 2rem;
-      max-width: 1200px;
-      margin: 0 auto 3rem;
+      grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+      gap: 1.5rem;
+      margin-bottom: 3rem;
     }
     
     .client-site-card {
       background: var(--card-bg);
       border: 1px solid var(--border);
       border-radius: 20px;
-      padding: 2rem;
+      padding: 1.75rem;
       backdrop-filter: blur(15px);
-      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.4);
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      transition: transform 0.3s;
+      transition: transform 0.3s, border-color 0.3s;
+      position: relative;
+      overflow: hidden;
     }
     .client-site-card:hover {
       transform: translateY(-4px);
+      border-color: rgba(0, 242, 254, 0.4);
+    }
+    .card-top-glow {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
     }
     
     .site-header {
@@ -83,310 +186,771 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 1.5rem;
+      font-size: 1.4rem;
       color: #fff;
+      flex-shrink: 0;
     }
-    .icon-store { background: linear-gradient(135deg, #FF9900, #FF5500); }
-    .icon-studio { background: linear-gradient(135deg, #7928CA, #FF0080); }
-    .icon-forum { background: linear-gradient(135deg, #00DFD8, #0072FF); }
-
     .site-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 1.35rem;
+      font-family: var(--font-display);
+      font-size: 1.25rem;
       font-weight: 700;
     }
     .site-url {
-      font-size: 0.83rem;
+      font-size: 0.8rem;
       color: #6B7280;
+      font-family: var(--font-mono);
     }
     .site-desc {
       color: #9CA3AF;
-      font-size: 0.92rem;
+      font-size: 0.88rem;
       line-height: 1.5;
-      margin-bottom: 1.5rem;
+      margin-bottom: 1.25rem;
     }
 
     .auth-status-box {
-      background: rgba(0, 0, 0, 0.4);
+      background: rgba(0, 0, 0, 0.45);
       border: 1px dashed var(--border);
       border-radius: 12px;
       padding: 1rem;
       margin-bottom: 1.25rem;
-      font-size: 0.88rem;
+      font-size: 0.86rem;
     }
     .user-info {
       display: flex;
-      align-items: center;
-      gap: 0.75rem;
+      flex-direction: column;
+      gap: 0.3rem;
       color: var(--accent-cyan);
-      font-weight: 600;
+    }
+    .user-info-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-weight: 700;
+      font-size: 0.95rem;
+    }
+    .token-preview {
+      font-family: var(--font-mono);
+      font-size: 0.72rem;
+      color: #9CA3AF;
+      background: rgba(0, 0, 0, 0.5);
+      padding: 3px 6px;
+      border-radius: 6px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
+    .action-btn-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0.6rem;
+    }
     .btn-auth {
-      width: 100%;
-      padding: 0.9rem;
+      padding: 0.8rem;
       border-radius: 12px;
       border: none;
       background: var(--grad-primary);
       color: #FFF;
       font-family: inherit;
       font-weight: 700;
-      font-size: 0.95rem;
+      font-size: 0.88rem;
       cursor: pointer;
       display: flex;
       align-items: center;
       justify-content: center;
       gap: 0.5rem;
-      transition: opacity 0.2s;
+      transition: opacity 0.2s, transform 0.2s;
     }
-    .btn-auth:hover { opacity: 0.9; }
-
+    .btn-auth:hover { opacity: 0.92; transform: translateY(-1px); }
+    .btn-secondary-action {
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid var(--border);
+      color: #FFF;
+    }
+    .btn-secondary-action:hover {
+      background: rgba(255, 255, 255, 0.15);
+    }
     .btn-logout {
+      grid-column: span 2;
       background: rgba(255, 77, 77, 0.15);
       border: 1px solid #FF4D4D;
       color: #FF4D4D;
-      margin-top: 0.5rem;
+      margin-top: 0.4rem;
+    }
+    .btn-logout:hover {
+      background: rgba(255, 77, 77, 0.3);
+    }
+    .btn-launch {
+      grid-column: span 2;
+      background: rgba(0, 242, 254, 0.1);
+      border: 1px solid rgba(0, 242, 254, 0.3);
+      color: var(--accent-cyan);
+      text-decoration: none;
+      padding: 0.65rem;
+      border-radius: 10px;
+      font-size: 0.82rem;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.4rem;
+      margin-top: 0.4rem;
+      transition: background 0.2s;
+    }
+    .btn-launch:hover {
+      background: rgba(0, 242, 254, 0.2);
     }
 
-    /* Integration Code Snippet Section */
+    /* Custom Project Simulator Box */
+    .custom-app-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.6rem;
+      margin-bottom: 1rem;
+    }
+    .custom-input {
+      padding: 0.65rem 0.9rem;
+      background: rgba(0, 0, 0, 0.5);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: #FFF;
+      font-size: 0.85rem;
+      font-family: inherit;
+    }
+    .custom-input:focus {
+      outline: none;
+      border-color: var(--accent-cyan);
+    }
+
+    /* Code Snippet & Docs Tabs */
     .code-section {
-      max-width: 1200px;
-      margin: 0 auto;
       background: rgba(15, 20, 32, 0.9);
       border: 1px solid var(--border);
       border-radius: 20px;
       padding: 2rem;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.5);
     }
-    .code-title {
-      font-family: 'Outfit', sans-serif;
-      font-size: 1.5rem;
-      margin-bottom: 1rem;
+    .code-tabs {
       display: flex;
-      align-items: center;
-      gap: 0.6rem;
+      gap: 0.5rem;
+      margin-bottom: 1.25rem;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 0.75rem;
+      flex-wrap: wrap;
+    }
+    .code-tab-btn {
+      background: transparent;
+      border: 1px solid transparent;
+      color: #9CA3AF;
+      padding: 0.5rem 1rem;
+      border-radius: 10px;
+      font-family: inherit;
+      font-size: 0.88rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .code-tab-btn:hover { color: #FFF; }
+    .code-tab-btn.active {
+      background: rgba(0, 242, 254, 0.12);
+      border-color: rgba(0, 242, 254, 0.3);
+      color: var(--accent-cyan);
+    }
+    .code-block {
+      display: none;
+      position: relative;
+    }
+    .code-block.active {
+      display: block;
     }
     pre {
       background: #05070D;
       border: 1px solid var(--border);
-      border-radius: 12px;
+      border-radius: 14px;
       padding: 1.25rem;
       overflow-x: auto;
       color: #00F2FE;
-      font-family: monospace;
-      font-size: 0.9rem;
+      font-family: var(--font-mono);
+      font-size: 0.88rem;
       line-height: 1.6;
     }
+    .copy-btn {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid var(--border);
+      color: #FFF;
+      padding: 0.4rem 0.8rem;
+      border-radius: 8px;
+      font-size: 0.75rem;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .copy-btn:hover { background: rgba(255, 255, 255, 0.2); }
+
+    .hidden { display: none !important; }
   </style>
 </head>
 <body>
 
-  <header>
-    <h1>Universal SoundWave Auth SDK</h1>
-    <p class="subtitle">1-Line Single Sign-On (SSO) Integration across all your websites</p>
-  </header>
-
-  <main>
-    <!-- Multi-Website Integration Grid -->
-    <div class="demo-grid">
-      
-      <!-- CLIENT SITE 1: SoundWave Store -->
-      <div class="client-site-card">
-        <div>
-          <div class="site-header">
-            <div class="site-icon icon-store"><i class="fa-solid fa-cart-shopping"></i></div>
-            <div>
-              <h2 class="site-title">SoundWave Gear Store</h2>
-              <span class="site-url">https://store.soundwave.io</span>
-            </div>
-          </div>
-          <p class="site-desc">Audio equipment and merchandise store. Uses SoundWave Auth for instant checkout authentication.</p>
+  <div class="container">
+    <header>
+      <div class="header-brand">
+        <div class="logo-badge">
+          <img src="assets/logo.jpg" alt="SoundWave Logo" />
         </div>
-
         <div>
-          <div class="auth-status-box" id="status-store">
-            <span class="logged-out">Status: <strong>Not Logged In</strong></span>
-          </div>
-          <button class="btn-auth" id="btn-login-store">
-            <i class="fa-solid fa-bolt"></i> Log In with SoundWave
-          </button>
-          <button class="btn-auth btn-logout hidden" id="btn-logout-store">
-            <i class="fa-solid fa-right-from-bracket"></i> Sign Out
-          </button>
+          <h1>SoundWave Universal SSO</h1>
+          <p class="subtitle">1-Line Common Login & Identity SDK for all your web apps & projects</p>
         </div>
       </div>
 
-      <!-- CLIENT SITE 2: Studio Pro Hub -->
-      <div class="client-site-card">
-        <div>
-          <div class="site-header">
-            <div class="site-icon icon-studio"><i class="fa-solid fa-sliders"></i></div>
-            <div>
-              <h2 class="site-title">Studio Pro Hub</h2>
-              <span class="site-url">https://studio.soundwave.io</span>
+      <div class="global-sso-bar">
+        <div class="sso-indicator">
+          <span class="status-dot" id="global-status-dot"></span>
+          <span id="global-status-text">Global SSO: Not Logged In</span>
+        </div>
+        <a href="index.html" class="btn-return-login">
+          <i class="fa-solid fa-arrow-left"></i> Login Portal
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <h2 class="section-title"><i class="fa-solid fa-network-wired"></i> Live Connected Project Simulations</h2>
+
+      <!-- Multi-Website Integration Grid -->
+      <div class="demo-grid">
+        
+        <!-- PROJECT 1: SoundWave Main Platform (SoundWave_App.com) -->
+        <div class="client-site-card">
+          <div class="card-top-glow" style="background: linear-gradient(90deg, #FF0080, #7928CA);"></div>
+          <div>
+            <div class="site-header">
+              <div class="site-icon" style="background: linear-gradient(135deg, #FF0080, #7928CA);"><i class="fa-solid fa-play"></i></div>
+              <div>
+                <h3 class="site-title">SoundWave Platform</h3>
+                <span class="site-url">SoundWave_App.com</span>
+              </div>
+            </div>
+            <p class="site-desc">Flagship music streaming and ecommerce application with premium audio and subscriptions.</p>
+          </div>
+
+          <div>
+            <div class="auth-status-box" id="status-sw-app">
+              <span class="logged-out"><i class="fa-solid fa-circle-xmark"></i> Status: <strong>Not Logged In</strong></span>
+            </div>
+            <div class="action-btn-row">
+              <button class="btn-auth" id="btn-login-modal-sw-app"><i class="fa-solid fa-window-restore"></i> Modal Login</button>
+              <button class="btn-auth btn-secondary-action" id="btn-login-redirect-sw-app"><i class="fa-solid fa-arrow-right-to-bracket"></i> Redirect SSO</button>
+              <button class="btn-auth btn-logout hidden" id="btn-logout-sw-app"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+              <a href="../SoundWave_App.com/index.html" class="btn-launch" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open SoundWave_App.com</a>
             </div>
           </div>
-          <p class="site-desc">Cloud DAW and audio production SaaS portal. Connects member studio accounts seamlessly.</p>
         </div>
 
-        <div>
-          <div class="auth-status-box" id="status-studio">
-            <span class="logged-out">Status: <strong>Not Logged In</strong></span>
+        <!-- PROJECT 2: SW Music Streaming App (SW_Music.App.io) -->
+        <div class="client-site-card">
+          <div class="card-top-glow" style="background: linear-gradient(90deg, #00DFD8, #0072FF);"></div>
+          <div>
+            <div class="site-header">
+              <div class="site-icon" style="background: linear-gradient(135deg, #00DFD8, #0072FF);"><i class="fa-solid fa-music"></i></div>
+              <div>
+                <h3 class="site-title">SW Music App</h3>
+                <span class="site-url">SW_Music.App.io</span>
+              </div>
+            </div>
+            <p class="site-desc">Hi-Fi audio player with 32-band visualizer, real-time lyrics synchronization, and playlist cloud storage.</p>
           </div>
-          <button class="btn-auth" id="btn-login-studio">
-            <i class="fa-solid fa-bolt"></i> Log In with SoundWave
-          </button>
-          <button class="btn-auth btn-logout hidden" id="btn-logout-studio">
-            <i class="fa-solid fa-right-from-bracket"></i> Sign Out
-          </button>
-        </div>
-      </div>
 
-      <!-- CLIENT SITE 3: Audio Community Forum -->
-      <div class="client-site-card">
-        <div>
-          <div class="site-header">
-            <div class="site-icon icon-forum"><i class="fa-solid fa-comments"></i></div>
-            <div>
-              <h2 class="site-title">Audio Wave Community</h2>
-              <span class="site-url">https://forum.soundwave.io</span>
+          <div>
+            <div class="auth-status-box" id="status-sw-music">
+              <span class="logged-out"><i class="fa-solid fa-circle-xmark"></i> Status: <strong>Not Logged In</strong></span>
+            </div>
+            <div class="action-btn-row">
+              <button class="btn-auth" id="btn-login-modal-sw-music"><i class="fa-solid fa-window-restore"></i> Modal Login</button>
+              <button class="btn-auth btn-secondary-action" id="btn-login-redirect-sw-music"><i class="fa-solid fa-arrow-right-to-bracket"></i> Redirect SSO</button>
+              <button class="btn-auth btn-logout hidden" id="btn-logout-sw-music"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+              <a href="../SW_Music.App.io/index.html" class="btn-launch" target="_blank"><i class="fa-solid fa-arrow-up-right-from-square"></i> Open SW_Music.App.io</a>
             </div>
           </div>
-          <p class="site-desc">Community forum for music producers and sound engineers. Uses single sign-on user profiles.</p>
         </div>
 
-        <div>
-          <div class="auth-status-box" id="status-forum">
-            <span class="logged-out">Status: <strong>Not Logged In</strong></span>
+        <!-- PROJECT 3: SoundWave Gear Store -->
+        <div class="client-site-card">
+          <div class="card-top-glow" style="background: linear-gradient(90deg, #FF9900, #FF5500);"></div>
+          <div>
+            <div class="site-header">
+              <div class="site-icon" style="background: linear-gradient(135deg, #FF9900, #FF5500);"><i class="fa-solid fa-bag-shopping"></i></div>
+              <div>
+                <h3 class="site-title">SoundWave Gear Store</h3>
+                <span class="site-url">store.soundwave.io</span>
+              </div>
+            </div>
+            <p class="site-desc">E-commerce store for studio headphones, audio interfaces, and vinyl merchandise with 1-click checkout.</p>
           </div>
-          <button class="btn-auth" id="btn-login-forum">
-            <i class="fa-solid fa-bolt"></i> Log In with SoundWave
-          </button>
-          <button class="btn-auth btn-logout hidden" id="btn-logout-forum">
-            <i class="fa-solid fa-right-from-bracket"></i> Sign Out
-          </button>
+
+          <div>
+            <div class="auth-status-box" id="status-store">
+              <span class="logged-out"><i class="fa-solid fa-circle-xmark"></i> Status: <strong>Not Logged In</strong></span>
+            </div>
+            <div class="action-btn-row">
+              <button class="btn-auth" id="btn-login-modal-store"><i class="fa-solid fa-window-restore"></i> Modal Login</button>
+              <button class="btn-auth btn-secondary-action" id="btn-login-redirect-store"><i class="fa-solid fa-arrow-right-to-bracket"></i> Redirect SSO</button>
+              <button class="btn-auth btn-logout hidden" id="btn-logout-store"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+            </div>
+          </div>
         </div>
+
+        <!-- PROJECT 4: Studio Pro DAW SaaS -->
+        <div class="client-site-card">
+          <div class="card-top-glow" style="background: linear-gradient(90deg, #10B981, #059669);"></div>
+          <div>
+            <div class="site-header">
+              <div class="site-icon" style="background: linear-gradient(135deg, #10B981, #059669);"><i class="fa-solid fa-sliders"></i></div>
+              <div>
+                <h3 class="site-title">Studio Pro DAW</h3>
+                <span class="site-url">studio.soundwave.io</span>
+              </div>
+            </div>
+            <p class="site-desc">Cloud Digital Audio Workstation and mastering SaaS for audio producers and mixing engineers.</p>
+          </div>
+
+          <div>
+            <div class="auth-status-box" id="status-studio">
+              <span class="logged-out"><i class="fa-solid fa-circle-xmark"></i> Status: <strong>Not Logged In</strong></span>
+            </div>
+            <div class="action-btn-row">
+              <button class="btn-auth" id="btn-login-modal-studio"><i class="fa-solid fa-window-restore"></i> Modal Login</button>
+              <button class="btn-auth btn-secondary-action" id="btn-login-redirect-studio"><i class="fa-solid fa-arrow-right-to-bracket"></i> Redirect SSO</button>
+              <button class="btn-auth btn-logout hidden" id="btn-logout-studio"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROJECT 5: Audio Wave Community -->
+        <div class="client-site-card">
+          <div class="card-top-glow" style="background: linear-gradient(90deg, #8B5CF6, #EC4899);"></div>
+          <div>
+            <div class="site-header">
+              <div class="site-icon" style="background: linear-gradient(135deg, #8B5CF6, #EC4899);"><i class="fa-solid fa-comments"></i></div>
+              <div>
+                <h3 class="site-title">Community Forum</h3>
+                <span class="site-url">forum.soundwave.io</span>
+              </div>
+            </div>
+            <p class="site-desc">Discussions and collaboration hub for audio developers and music creators with unified user profiles.</p>
+          </div>
+
+          <div>
+            <div class="auth-status-box" id="status-forum">
+              <span class="logged-out"><i class="fa-solid fa-circle-xmark"></i> Status: <strong>Not Logged In</strong></span>
+            </div>
+            <div class="action-btn-row">
+              <button class="btn-auth" id="btn-login-modal-forum"><i class="fa-solid fa-window-restore"></i> Modal Login</button>
+              <button class="btn-auth btn-secondary-action" id="btn-login-redirect-forum"><i class="fa-solid fa-arrow-right-to-bracket"></i> Redirect SSO</button>
+              <button class="btn-auth btn-logout hidden" id="btn-logout-forum"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- PROJECT 6: Custom Project Sandbox Simulator -->
+        <div class="client-site-card" style="border: 1px dashed rgba(0, 242, 254, 0.4);">
+          <div class="card-top-glow" style="background: var(--grad-primary);"></div>
+          <div>
+            <div class="site-header">
+              <div class="site-icon" style="background: var(--grad-primary);"><i class="fa-solid fa-cube"></i></div>
+              <div>
+                <h3 class="site-title">Test Your Custom App</h3>
+                <span class="site-url">my-custom-app.com</span>
+              </div>
+            </div>
+            <div class="custom-app-form">
+              <input type="text" id="custom-app-name" class="custom-input" placeholder="App Name (e.g. My Portfolio Web App)" value="My Portfolio App" />
+              <input type="text" id="custom-app-id" class="custom-input" placeholder="App ID (e.g. my-portfolio)" value="my-portfolio" />
+            </div>
+          </div>
+
+          <div>
+            <div class="auth-status-box" id="status-custom">
+              <span class="logged-out"><i class="fa-solid fa-circle-xmark"></i> Status: <strong>Not Logged In</strong></span>
+            </div>
+            <div class="action-btn-row">
+              <button class="btn-auth" id="btn-login-modal-custom"><i class="fa-solid fa-window-restore"></i> Modal Login</button>
+              <button class="btn-auth btn-secondary-action" id="btn-login-redirect-custom"><i class="fa-solid fa-arrow-right-to-bracket"></i> Redirect SSO</button>
+              <button class="btn-auth btn-logout hidden" id="btn-logout-custom"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+            </div>
+          </div>
+        </div>
+
       </div>
 
-    </div>
+      <!-- CODE SNIPPET INTEGRATION GUIDE -->
+      <div class="code-section">
+        <h2 class="section-title"><i class="fa-solid fa-code"></i> Integration Code Generator</h2>
+        <p style="color: #9CA3AF; margin-bottom: 1.5rem;">Copy and paste into any project to integrate SoundWave Common Login in seconds:</p>
+        
+        <div class="code-tabs">
+          <button class="code-tab-btn active" data-lang="html">HTML / Vanilla JS</button>
+          <button class="code-tab-btn" data-lang="react">React / Next.js</button>
+          <button class="code-tab-btn" data-lang="vue">Vue 3 / Nuxt</button>
+          <button class="code-tab-btn" data-lang="node">Node.js Express Backend</button>
+          <button class="code-tab-btn" data-lang="python">Python FastAPI Backend</button>
+        </div>
 
-    <!-- CODE SNIPPET INTEGRATION GUIDE -->
-    <div class="code-section">
-      <h2 class="code-title"><i class="fa-solid fa-code"></i> How to add SoundWave Auth to ANY website</h2>
-      <p style="color: #9CA3AF; margin-bottom: 1rem;">Copy and paste this script into the <code>&lt;head&gt;</code> or body of any HTML page:</p>
-      
-      <pre><code>&lt;!-- 1. Load SoundWave SDK --&gt;
-&lt;script src="c:/SoundWave.Login.io/soundwave-auth-sdk.js"&gt;&lt;/script&gt;
+        <!-- 1. HTML Block -->
+        <div class="code-block active" id="code-html">
+          <button class="copy-btn" onclick="copyCode('code-pre-html')"><i class="fa-regular fa-copy"></i> Copy Code</button>
+          <pre id="code-pre-html"><code>&lt;!-- 1. Include SoundWave Universal Auth SDK --&gt;
+&lt;script src="c:/SoundWave/SoundWave.Login.io/soundwave-auth-sdk.js"&gt;&lt;/script&gt;
 
-&lt;!-- 2. Initialize and trigger authentication modal --&gt;
+&lt;!-- 2. Add Login Button Container --&gt;
+&lt;div id="soundwave-login-container"&gt;&lt;/div&gt;
+
+&lt;!-- 3. Initialize &amp; Listen for Session --&gt;
 &lt;script&gt;
   SoundWaveAuth.init({
-    appId: 'my-website-1',
-    appName: 'My Awesome Website',
+    appId: 'my-web-project',
+    appName: 'My Awesome Project',
+    authUrl: 'c:/SoundWave/SoundWave.Login.io/index.html',
     onSuccess: (user) =&gt; {
-      console.log('User logged in:', user.username, user.role);
-      alert('Welcome ' + user.username + '!');
+      console.log('✅ Logged in successfully:', user.username, user.token);
+      alert('Welcome back, ' + user.username + '!');
     },
     onLogout: () =&gt; {
-      console.log('User logged out');
+      console.log('Signed out');
     }
   });
 
-  // Attach login button click event
-  document.getElementById('my-login-btn').addEventListener('click', () =&gt; {
-    SoundWaveAuth.openModal();
-  });
+  // Render pre-styled login button or trigger manually:
+  SoundWaveAuth.renderButton('soundwave-login-container');
+  
+  // Or open programmatically on your own button click:
+  // document.getElementById('custom-btn').onclick = () => SoundWaveAuth.openModal();
 &lt;/script&gt;</code></pre>
-    </div>
-  </main>
+        </div>
 
-  <!-- Load SoundWave SDK -->
+        <!-- 2. React Block -->
+        <div class="code-block" id="code-react">
+          <button class="copy-btn" onclick="copyCode('code-pre-react')"><i class="fa-regular fa-copy"></i> Copy Code</button>
+          <pre id="code-pre-react"><code>import React, { useEffect, useState } from 'react';
+
+export function SoundWaveLoginWidget() {
+  const [user, setUser] = useState(null);
+
+  useEffect(() => {
+    if (window.SoundWaveAuth) {
+      window.SoundWaveAuth.init({
+        appId: 'my-react-app',
+        appName: 'React Music App',
+        onSuccess: (userData) => setUser(userData),
+        onLogout: () => setUser(null)
+      });
+      setUser(window.SoundWaveAuth.getUser());
+    }
+  }, []);
+
+  return (
+    &lt;div className="auth-widget"&gt;
+      {user ? (
+        &lt;div&gt;
+          &lt;span&gt;Welcome, {user.username} ({user.role})&lt;/span&gt;
+          &lt;button onClick={() =&gt; window.SoundWaveAuth.logout()}&gt;Sign Out&lt;/button&gt;
+        &lt;/div&gt;
+      ) : (
+        &lt;button onClick={() =&gt; window.SoundWaveAuth.openModal()}&gt;
+          Sign in with SoundWave
+        &lt;/button&gt;
+      )}
+    &lt;/div&gt;
+  );
+}</code></pre>
+        </div>
+
+        <!-- 3. Vue Block -->
+        <div class="code-block" id="code-vue">
+          <button class="copy-btn" onclick="copyCode('code-pre-vue')"><i class="fa-regular fa-copy"></i> Copy Code</button>
+          <pre id="code-pre-vue"><code>&lt;template&gt;
+  &lt;div class="auth-bar"&gt;
+    &lt;div v-if="user"&gt;
+      &lt;p&gt;Signed in as: {{ user.username }}&lt;/p&gt;
+      &lt;button @click="logout"&gt;Sign Out&lt;/button&gt;
+    &lt;/div&gt;
+    &lt;button v-else @click="login"&gt;
+      ⚡ Sign In with SoundWave
+    &lt;/button&gt;
+  &lt;/div&gt;
+&lt;/template&gt;
+
+&lt;script setup&gt;
+import { ref, onMounted } from 'vue';
+
+const user = ref(null);
+
+onMounted(() =&gt; {
+  window.SoundWaveAuth?.init({
+    appId: 'my-vue-project',
+    appName: 'Vue Sound Studio',
+    onSuccess: (data) =&gt; user.value = data,
+    onLogout: () =&gt; user.value = null
+  });
+  user.value = window.SoundWaveAuth?.getUser();
+});
+
+const login = () =&gt; window.SoundWaveAuth?.openModal();
+const logout = () =&gt; window.SoundWaveAuth?.logout();
+&lt;/script&gt;</code></pre>
+        </div>
+
+        <!-- 4. Node.js Block -->
+        <div class="code-block" id="code-node">
+          <button class="copy-btn" onclick="copyCode('code-pre-node')"><i class="fa-regular fa-copy"></i> Copy Code</button>
+          <pre id="code-pre-node"><code>const express = require('express');
+const app = express();
+
+// Middleware to authenticate SoundWave Bearer Token
+function verifySoundWaveAuth(req, res, next) {
+  const authHeader = req.headers.authorization;
+  if (!authHeader || !authHeader.startsWith('Bearer sw_token_')) {
+    return res.status(401).json({ error: 'Unauthorized: Invalid SoundWave token' });
+  }
+
+  const token = authHeader.split(' ')[1];
+  req.soundwaveToken = token;
+  next();
+}
+
+app.get('/api/v1/protected-data', verifySoundWaveAuth, (req, res) => {
+  res.json({ message: 'Access granted via SoundWave SSO', token: req.soundwaveToken });
+});
+
+app.listen(5000, () => console.log('Backend running on port 5000'));</code></pre>
+        </div>
+
+        <!-- 5. Python Block -->
+        <div class="code-block" id="code-python">
+          <button class="copy-btn" onclick="copyCode('code-pre-python')"><i class="fa-regular fa-copy"></i> Copy Code</button>
+          <pre id="code-pre-python"><code>from fastapi import FastAPI, Depends, HTTPException, Header
+
+app = FastAPI()
+
+async def verify_soundwave_token(authorization: str = Header(...)):
+    if not authorization or not authorization.startswith("Bearer sw_token_"):
+        raise HTTPException(status_code=401, detail="Unauthorized SoundWave Token")
+    token = authorization.replace("Bearer ", "")
+    return {"token": token, "status": "authenticated"}
+
+@app.get("/api/v1/user/playlists")
+async def get_playlists(user: dict = Depends(verify_soundwave_token)):
+    return {"status": "success", "user": user, "playlists": ["Favorites", "Hi-Res Synthwave"]}
+</code></pre>
+        </div>
+
+      </div>
+    </main>
+  </div>
+
+  <!-- Load Universal SDK -->
   <script src="soundwave-auth-sdk.js"></script>
 
   <script>
     document.addEventListener('DOMContentLoaded', () => {
 
-      // Config 1: SoundWave Store
-      const storeLoginBtn = document.getElementById('btn-login-store');
-      const storeLogoutBtn = document.getElementById('btn-logout-store');
-      const storeStatus = document.getElementById('status-store');
+      const globalDot = document.getElementById('global-status-dot');
+      const globalText = document.getElementById('global-status-text');
 
-      SoundWaveAuth.init({
-        appId: 'soundwave-store',
-        appName: 'SoundWave Gear Store',
-        onSuccess: (user) => {
-          storeStatus.innerHTML = `<div class="user-info"><i class="fa-solid fa-circle-check"></i> Connected as <strong>${user.username}</strong> (${user.role})</div>`;
-          storeLoginBtn.classList.add('hidden');
-          storeLogoutBtn.classList.remove('hidden');
-        },
-        onLogout: () => {
-          storeStatus.innerHTML = `<span class="logged-out">Status: <strong>Not Logged In</strong></span>`;
-          storeLoginBtn.classList.remove('hidden');
-          storeLogoutBtn.classList.add('hidden');
+      function updateGlobalStatus(user) {
+        if (user) {
+          globalDot.classList.add('active');
+          globalText.textContent = `Global SSO: Connected (${user.username})`;
+        } else {
+          globalDot.classList.remove('active');
+          globalText.textContent = `Global SSO: Not Logged In`;
         }
-      });
+      }
 
-      storeLoginBtn.addEventListener('click', () => SoundWaveAuth.openModal());
-      storeLogoutBtn.addEventListener('click', () => SoundWaveAuth.logout());
+      // Helper to register a test project card
+      function setupProjectCard(config) {
+        const modalBtn = document.getElementById(config.modalBtnId);
+        const redirectBtn = document.getElementById(config.redirectBtnId);
+        const logoutBtn = document.getElementById(config.logoutBtnId);
+        const statusBox = document.getElementById(config.statusBoxId);
 
-      // Config 2: Studio Pro Hub
-      const studioLoginBtn = document.getElementById('btn-login-studio');
-      const studioLogoutBtn = document.getElementById('btn-logout-studio');
-      const studioStatus = document.getElementById('status-studio');
+        function renderUser(user) {
+          if (user) {
+            statusBox.innerHTML = `
+              <div class="user-info">
+                <div class="user-info-row"><i class="fa-solid fa-circle-check" style="color: #10B981;"></i> ${user.username} <span style="font-size:0.75rem; color:#9CA3AF;">(${user.role})</span></div>
+                <div class="token-preview">Token: ${user.token || 'sw_active_token'}</div>
+              </div>
+            `;
+            modalBtn.classList.add('hidden');
+            redirectBtn.classList.add('hidden');
+            logoutBtn.classList.remove('hidden');
+          } else {
+            statusBox.innerHTML = `<span class="logged-out"><i class="fa-solid fa-circle-xmark"></i> Status: <strong>Not Logged In</strong></span>`;
+            modalBtn.classList.remove('hidden');
+            redirectBtn.classList.remove('hidden');
+            logoutBtn.classList.add('hidden');
+          }
+        }
 
-      studioLoginBtn.addEventListener('click', () => {
-        SoundWaveAuth.init({
-          appId: 'studio-pro-hub',
-          appName: 'Studio Pro Hub',
-          onSuccess: (user) => {
-            studioStatus.innerHTML = `<div class="user-info"><i class="fa-solid fa-circle-check"></i> Connected as <strong>${user.username}</strong> (${user.role})</div>`;
-            studioLoginBtn.classList.add('hidden');
-            studioLogoutBtn.classList.remove('hidden');
-          },
-          onLogout: () => {
-            studioStatus.innerHTML = `<span class="logged-out">Status: <strong>Not Logged In</strong></span>`;
-            studioLoginBtn.classList.remove('hidden');
-            studioLogoutBtn.classList.add('hidden');
+        // Check if session already exists
+        const existing = SoundWaveAuth.getUser();
+        renderUser(existing);
+        updateGlobalStatus(existing);
+
+        modalBtn.addEventListener('click', () => {
+          SoundWaveAuth.init({
+            appId: typeof config.appId === 'function' ? config.appId() : config.appId,
+            appName: typeof config.appName === 'function' ? config.appName() : config.appName,
+            authUrl: 'index.html',
+            onSuccess: (user) => {
+              renderUser(user);
+              updateGlobalStatus(user);
+              // Update all other cards if global SSO
+              document.querySelectorAll('.client-site-card').forEach(() => {
+                renderAllCards();
+              });
+            },
+            onLogout: () => {
+              renderUser(null);
+              updateGlobalStatus(null);
+            }
+          });
+          SoundWaveAuth.openModal();
+        });
+
+        redirectBtn.addEventListener('click', () => {
+          SoundWaveAuth.loginRedirect({
+            appId: typeof config.appId === 'function' ? config.appId() : config.appId,
+            appName: typeof config.appName === 'function' ? config.appName() : config.appName,
+            redirectUri: window.location.href
+          });
+        });
+
+        logoutBtn.addEventListener('click', () => {
+          SoundWaveAuth.logout();
+          renderUser(null);
+          updateGlobalStatus(null);
+          renderAllCards();
+        });
+      }
+
+      function renderAllCards() {
+        const currentUser = SoundWaveAuth.getUser();
+        updateGlobalStatus(currentUser);
+        ['sw-app', 'sw-music', 'store', 'studio', 'forum', 'custom'].forEach(key => {
+          const statusBox = document.getElementById(`status-${key}`);
+          const modalBtn = document.getElementById(`btn-login-modal-${key}`);
+          const redirectBtn = document.getElementById(`btn-login-redirect-${key}`);
+          const logoutBtn = document.getElementById(`btn-logout-${key}`);
+
+          if (statusBox && modalBtn && redirectBtn && logoutBtn) {
+            if (currentUser) {
+              statusBox.innerHTML = `
+                <div class="user-info">
+                  <div class="user-info-row"><i class="fa-solid fa-circle-check" style="color: #10B981;"></i> ${currentUser.username} <span style="font-size:0.75rem; color:#9CA3AF;">(${currentUser.role})</span></div>
+                  <div class="token-preview">Token: ${currentUser.token || 'sw_token_active'}</div>
+                </div>
+              `;
+              modalBtn.classList.add('hidden');
+              redirectBtn.classList.add('hidden');
+              logoutBtn.classList.remove('hidden');
+            } else {
+              statusBox.innerHTML = `<span class="logged-out"><i class="fa-solid fa-circle-xmark"></i> Status: <strong>Not Logged In</strong></span>`;
+              modalBtn.classList.remove('hidden');
+              redirectBtn.classList.remove('hidden');
+              logoutBtn.classList.add('hidden');
+            }
           }
         });
-        SoundWaveAuth.openModal();
-      });
-      studioLogoutBtn.addEventListener('click', () => {
-        SoundWaveAuth.logout();
-        studioStatus.innerHTML = `<span class="logged-out">Status: <strong>Not Logged In</strong></span>`;
-        studioLoginBtn.classList.remove('hidden');
-        studioLogoutBtn.classList.add('hidden');
+      }
+
+      // Initialize all 6 Project Simulation Cards
+      setupProjectCard({
+        appId: 'soundwave-web-app',
+        appName: 'SoundWave Platform',
+        modalBtnId: 'btn-login-modal-sw-app',
+        redirectBtnId: 'btn-login-redirect-sw-app',
+        logoutBtnId: 'btn-logout-sw-app',
+        statusBoxId: 'status-sw-app'
       });
 
-      // Config 3: Audio Community
-      const forumLoginBtn = document.getElementById('btn-login-forum');
-      const forumLogoutBtn = document.getElementById('btn-logout-forum');
-      const forumStatus = document.getElementById('status-forum');
+      setupProjectCard({
+        appId: 'sw-music-app',
+        appName: 'SW Music App',
+        modalBtnId: 'btn-login-modal-sw-music',
+        redirectBtnId: 'btn-login-redirect-sw-music',
+        logoutBtnId: 'btn-logout-sw-music',
+        statusBoxId: 'status-sw-music'
+      });
 
-      forumLoginBtn.addEventListener('click', () => {
-        SoundWaveAuth.init({
-          appId: 'audio-community',
-          appName: 'Audio Wave Community',
-          onSuccess: (user) => {
-            forumStatus.innerHTML = `<div class="user-info"><i class="fa-solid fa-circle-check"></i> Connected as <strong>${user.username}</strong> (${user.role})</div>`;
-            forumLoginBtn.classList.add('hidden');
-            forumLogoutBtn.classList.remove('hidden');
-          },
-          onLogout: () => {
-            forumStatus.innerHTML = `<span class="logged-out">Status: <strong>Not Logged In</strong></span>`;
-            forumLoginBtn.classList.remove('hidden');
-            forumLogoutBtn.classList.add('hidden');
-          }
-        });
-        SoundWaveAuth.openModal();
+      setupProjectCard({
+        appId: 'soundwave-gear-store',
+        appName: 'SoundWave Gear Store',
+        modalBtnId: 'btn-login-modal-store',
+        redirectBtnId: 'btn-login-redirect-store',
+        logoutBtnId: 'btn-logout-store',
+        statusBoxId: 'status-store'
       });
-      forumLogoutBtn.addEventListener('click', () => {
-        SoundWaveAuth.logout();
-        forumStatus.innerHTML = `<span class="logged-out">Status: <strong>Not Logged In</strong></span>`;
-        forumLoginBtn.classList.remove('hidden');
-        forumLogoutBtn.classList.add('hidden');
+
+      setupProjectCard({
+        appId: 'studio-pro-hub',
+        appName: 'Studio Pro Hub',
+        modalBtnId: 'btn-login-modal-studio',
+        redirectBtnId: 'btn-login-redirect-studio',
+        logoutBtnId: 'btn-logout-studio',
+        statusBoxId: 'status-studio'
       });
+
+      setupProjectCard({
+        appId: 'audio-community',
+        appName: 'Audio Wave Community',
+        modalBtnId: 'btn-login-modal-forum',
+        redirectBtnId: 'btn-login-redirect-forum',
+        logoutBtnId: 'btn-logout-forum',
+        statusBoxId: 'status-forum'
+      });
+
+      setupProjectCard({
+        appId: () => document.getElementById('custom-app-id').value || 'custom-app',
+        appName: () => document.getElementById('custom-app-name').value || 'Custom Web App',
+        modalBtnId: 'btn-login-modal-custom',
+        redirectBtnId: 'btn-login-redirect-custom',
+        logoutBtnId: 'btn-logout-custom',
+        statusBoxId: 'status-custom'
+      });
+
+      // Handle multi-tab cross-tab broadcast updates
+      SoundWaveAuth.onSessionChange((user) => {
+        renderAllCards();
+      });
+
+      // Check URL for redirect token callback
+      SoundWaveAuth.handleRedirectCallback();
 
     });
+
+    // Tab Switching for Code Snippets
+    document.querySelectorAll('.code-tab-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.code-tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.code-block').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const lang = btn.getAttribute('data-lang');
+        document.getElementById(`code-${lang}`)?.classList.add('active');
+      });
+    });
+
+    // Copy Code Helper
+    function copyCode(elemId) {
+      const codeText = document.getElementById(elemId).innerText;
+      navigator.clipboard.writeText(codeText).then(() => {
+        alert('Code copied to clipboard! 📋');
+      });
+    }
   </script>
 </body>
 </html>
