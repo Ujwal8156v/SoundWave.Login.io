@@ -54,25 +54,29 @@
             <span class="p-icon" style="background: linear-gradient(135deg, #00F2FE, #4FACFE);"><i class="fa-solid fa-globe"></i></span>
             <div class="p-info"><span class="p-title">Universal Hub</span><span class="p-sub">Default Global Portal</span></div>
           </button>
-          <button class="project-option" data-app-id="soundwave-web-app" data-app-name="SoundWave Main Platform" role="menuitem">
+          <button class="project-option" data-app-id="soundwave-app" data-app-name="SoundWave Main Platform" role="menuitem">
             <span class="p-icon" style="background: linear-gradient(135deg, #FF0080, #7928CA);"><i class="fa-solid fa-play"></i></span>
             <div class="p-info"><span class="p-title">SoundWave App</span><span class="p-sub">SoundWave_App.com</span></div>
           </button>
-          <button class="project-option" data-app-id="sw-music-app" data-app-name="SW Music Streaming" role="menuitem">
+          <button class="project-option" data-app-id="sw-music-app" data-app-name="AuraMusic Studio" role="menuitem">
             <span class="p-icon" style="background: linear-gradient(135deg, #00DFD8, #0072FF);"><i class="fa-solid fa-music"></i></span>
-            <div class="p-info"><span class="p-title">SW Music App</span><span class="p-sub">SW_Music.App.io</span></div>
+            <div class="p-info"><span class="p-title">AuraMusic Streaming</span><span class="p-sub">SW_Music.App.io</span></div>
+          </button>
+          <button class="project-option" data-app-id="stitch-editor" data-app-name="Stitch Motion Editor" role="menuitem">
+            <span class="p-icon" style="background: linear-gradient(135deg, #00F0FF, #8B5CF6);"><i class="fa-solid fa-film"></i></span>
+            <div class="p-info"><span class="p-title">Stitch Video Studio</span><span class="p-sub">stitch_creative_motion_editor</span></div>
+          </button>
+          <button class="project-option" data-app-id="polycode-eval" data-app-name="PolyCode Compiler Suite" role="menuitem">
+            <span class="p-icon" style="background: linear-gradient(135deg, #6366F1, #06B6D4);"><i class="fa-solid fa-code"></i></span>
+            <div class="p-info"><span class="p-title">PolyCode Evaluation</span><span class="p-sub">PolyCode_Eval</span></div>
+          </button>
+          <button class="project-option" data-app-id="ai-bro" data-app-name="BRO AI Framework & DevStitch" role="menuitem">
+            <span class="p-icon" style="background: linear-gradient(135deg, #10B981, #059669);"><i class="fa-solid fa-robot"></i></span>
+            <div class="p-info"><span class="p-title">BRO Copilot & DevStitch</span><span class="p-sub">AI-BRO Framework</span></div>
           </button>
           <button class="project-option" data-app-id="soundwave-gear-store" data-app-name="SoundWave Gear Store" role="menuitem">
             <span class="p-icon" style="background: linear-gradient(135deg, #FF9900, #FF5500);"><i class="fa-solid fa-bag-shopping"></i></span>
             <div class="p-info"><span class="p-title">SoundWave Store</span><span class="p-sub">store.soundwave.io</span></div>
-          </button>
-          <button class="project-option" data-app-id="studio-pro-hub" data-app-name="Studio Pro Hub" role="menuitem">
-            <span class="p-icon" style="background: linear-gradient(135deg, #10B981, #059669);"><i class="fa-solid fa-sliders"></i></span>
-            <div class="p-info"><span class="p-title">Studio Pro DAW</span><span class="p-sub">studio.soundwave.io</span></div>
-          </button>
-          <button class="project-option" data-app-id="audio-community" data-app-name="Audio Wave Community" role="menuitem">
-            <span class="p-icon" style="background: linear-gradient(135deg, #8B5CF6, #EC4899);"><i class="fa-solid fa-comments"></i></span>
-            <div class="p-info"><span class="p-title">Community Forum</span><span class="p-sub">forum.soundwave.io</span></div>
           </button>
         </div>
       </div>
@@ -567,6 +571,11 @@
 
   <!-- TOAST NOTIFICATION CONTAINER -->
   <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- Firebase Web SDK (v10.13.0 Compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-analytics-compat.js"></script>
 
   <!-- Main JavaScript File -->
   <script src="app.js"></script>

@@ -42,7 +42,7 @@
       this.config = {
         appId: 'default-app',
         appName: 'Connected Application',
-        authUrl: './index.html',
+        authUrl: this._detectDefaultAuthUrl(),
         onSuccess: null,
         onLogout: null,
         theme: 'dark'
@@ -55,11 +55,35 @@
     }
 
     /**
+     * Smart Auto-Detection for SoundWave SSO Portal URL
+     */
+    _detectDefaultAuthUrl() {
+      if (typeof window !== 'undefined') {
+        if (window.SOUNDWAVE_AUTH_URL) return window.SOUNDWAVE_AUTH_URL;
+        
+        // If loaded on localhost / 127.0.0.1 on port 8088
+        if (window.location.port === '8088' || window.location.host.includes('8088')) {
+          return `${window.location.origin}/index.html`;
+        }
+
+        // Check if running in a sibling project directory
+        const path = window.location.pathname || '';
+        if (path.includes('SW_Music.App.io') || path.includes('SoundWave_App.com') || path.includes('stitch_creative_motion_editor') || path.includes('PolyCode_Eval')) {
+          return '../SoundWave.Login.io/index.html';
+        }
+      }
+      return './index.html';
+    }
+
+    /**
      * Initialize SDK on client website
      * @param {Object} options Configuration parameters
      */
     init(options = {}) {
       this.config = { ...this.config, ...options };
+      if (!options.authUrl && !this.config.authUrl) {
+        this.config.authUrl = this._detectDefaultAuthUrl();
+      }
       this.initialized = true;
 
       // Listen for postMessage from login iframe / modal
@@ -90,7 +114,7 @@
         this.config.onSuccess(existingUser);
       }
 
-      console.log(`[SoundWaveAuth] SDK initialized for "${this.config.appName}" (App ID: ${this.config.appId})`);
+      console.log(`[SoundWaveAuth] SDK initialized for "${this.config.appName}" (App ID: ${this.config.appId}) -> Auth URL: ${this.config.authUrl}`);
     }
 
     /**

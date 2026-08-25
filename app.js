@@ -5,6 +5,68 @@
 
 document.addEventListener('DOMContentLoaded', () => {
 
+  // --- FIREBASE CONFIGURATION & INITIALIZATION ---
+  const firebaseConfig = {
+    apiKey: "AIzaSyCrH9mUVo9dmli30NNGWPy3sQYn0ED0TOI",
+    authDomain: "soundwave-81419.firebaseapp.com",
+    projectId: "soundwave-81419",
+    storageBucket: "soundwave-81419.firebasestorage.app",
+    messagingSenderId: "251882338092",
+    appId: "1:251882338092:web:6a8774ac577680cdd69e89",
+    measurementId: "G-JJ68H0QQF2"
+  };
+
+  let auth = null;
+  let analytics = null;
+
+  try {
+    if (typeof firebase !== 'undefined') {
+      firebase.initializeApp(firebaseConfig);
+      auth = firebase.auth();
+      if (firebase.analytics) {
+        analytics = firebase.analytics();
+      }
+      console.log('[SoundWave Auth] Firebase initialized for project:', firebaseConfig.projectId);
+    }
+  } catch (err) {
+    console.warn('[SoundWave Auth] Firebase initialization:', err.message);
+  }
+
+  // Translate Firebase Error Codes into friendly user messages
+  function formatFirebaseError(error) {
+    if (!error) return 'An error occurred during authentication.';
+    const code = error.code || '';
+    switch (code) {
+      case 'auth/invalid-email':
+        return 'Please enter a valid email address.';
+      case 'auth/user-disabled':
+        return 'This account has been disabled by security.';
+      case 'auth/user-not-found':
+      case 'auth/invalid-credential':
+        return 'Incorrect email or password.';
+      case 'auth/wrong-password':
+        return 'Incorrect password. Please try again or reset your password.';
+      case 'auth/email-already-in-use':
+        return 'An account with this email already exists. Please sign in instead.';
+      case 'auth/weak-password':
+        return 'Password is too weak. Please use at least 6 characters.';
+      case 'auth/popup-closed-by-user':
+        return 'Google sign-in popup was closed before completion.';
+      case 'auth/cancelled-popup-request':
+        return 'Authentication popup request was cancelled.';
+      case 'auth/popup-blocked':
+        return 'Sign-in popup was blocked by your browser. Please allow popups for this portal.';
+      case 'auth/network-request-failed':
+        return 'Network connection issue. Please check your internet connection.';
+      case 'auth/operation-not-allowed':
+        return 'This sign-in provider is not enabled in Firebase Console yet.';
+      case 'auth/requires-recent-login':
+        return 'Please sign in again to perform this sensitive action.';
+      default:
+        return error.message || 'Authentication error. Please try again.';
+    }
+  }
+
   // --- SDK & MULTI-TENANT URL PARAMETER DETECTION ---
   const urlParams = new URLSearchParams(window.location.search);
   const isEmbedded = urlParams.get('embed') === 'true' || window.self !== window.top;
@@ -46,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (event.data && event.data.type === 'SESSION_LOGIN') {
         console.log('[SoundWave SSO] Received cross-tab login for:', event.data.user.username);
         if (!state.user && !isEmbedded) {
-          handleLoginSuccess(event.data.user.username, event.data.user.role, false);
+          handleLoginSuccess(event.data.user.username, event.data.user.role, false, event.data.user);
         }
       } else if (event.data && event.data.type === 'SESSION_LOGOUT') {
         if (state.user && !isEmbedded) {
@@ -509,9 +571,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Password Form Submit Handler
+  // Password Form Submit Handler (Firebase Authentication)
   if (passwordForm) {
-    passwordForm.addEventListener('submit', (e) => {
+    passwordForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       let isValid = true;
 
@@ -535,20 +597,43 @@ document.addEventListener('DOMContentLoaded', () => {
 
       if (!isValid) {
         playSound('error');
-        showToast('Please check the highlighted fields', 'error');
+        showToast('Please enter a valid email and password', 'error');
         return;
       }
 
-      // Trigger Spinner & Simulate Auth
       playSound('click');
       setLoadingState(submitPassBtn, true);
 
-      setTimeout(() => {
-        setLoadingState(submitPassBtn, false);
-        const namePart = loginEmail.value.split('@')[0];
-        const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
-        handleLoginSuccess(formattedName || 'Alex Rivera', 'Universal Pro Member');
-      }, 1200);
+      if (auth) {
+        try {
+          const userCredential = await auth.signInWithEmailAndPassword(
+            loginEmail.value.trim(),
+            loginPassword.value
+          );
+          setLoadingState(submitPassBtn, false);
+          const fbUser = userCredential.user;
+          const token = await fbUser.getIdToken();
+          const displayName = fbUser.displayName || loginEmail.value.split('@')[0];
+          handleLoginSuccess(displayName, 'Universal Member', true, {
+            email: fbUser.email,
+            uid: fbUser.uid,
+            token: token,
+            photoURL: fbUser.photoURL
+          });
+        } catch (error) {
+          setLoadingState(submitPassBtn, false);
+          playSound('error');
+          showToast(formatFirebaseError(error), 'error', 5000);
+        }
+      } else {
+        // Fallback simulation if offline or SDK uninitialized
+        setTimeout(() => {
+          setLoadingState(submitPassBtn, false);
+          const namePart = loginEmail.value.split('@')[0];
+          const formattedName = namePart.charAt(0).toUpperCase() + namePart.slice(1);
+          handleLoginSuccess(formattedName || 'Alex Rivera', 'Universal Pro Member');
+        }, 1200);
+      }
     });
   }
 
@@ -782,8 +867,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
+  // --- SIGN UP FORM SUBMIT (Firebase createUserWithEmailAndPassword) ---
   if (signupForm) {
-    signupForm.addEventListener('submit', (e) => {
+    signupForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       let valid = true;
 
@@ -821,11 +907,44 @@ document.addEventListener('DOMContentLoaded', () => {
       playSound('click');
       setLoadingState(submitSignupBtn, true);
 
-      setTimeout(() => {
-        setLoadingState(submitSignupBtn, false);
-        const roleLabel = signupRole.options[signupRole.selectedIndex].text.replace(/^[^\w]+/, '').trim();
-        handleLoginSuccess(signupName.value.trim(), roleLabel);
-      }, 1300);
+      const displayName = signupName.value.trim();
+      const roleLabel = signupRole.options[signupRole.selectedIndex].text.replace(/^[^\w]+/, '').trim();
+
+      if (auth) {
+        try {
+          const userCredential = await auth.createUserWithEmailAndPassword(
+            signupEmail.value.trim(),
+            signupPass.value
+          );
+          const fbUser = userCredential.user;
+
+          // Update Firebase Display Name
+          try {
+            await fbUser.updateProfile({ displayName: displayName });
+          } catch (profileErr) {
+            console.warn('[SoundWave Auth] Profile display name update:', profileErr);
+          }
+
+          const token = await fbUser.getIdToken();
+          setLoadingState(submitSignupBtn, false);
+          handleLoginSuccess(displayName, roleLabel, true, {
+            email: fbUser.email,
+            uid: fbUser.uid,
+            token: token,
+            photoURL: fbUser.photoURL
+          });
+        } catch (error) {
+          setLoadingState(submitSignupBtn, false);
+          playSound('error');
+          showToast(formatFirebaseError(error), 'error', 5000);
+        }
+      } else {
+        // Fallback simulation
+        setTimeout(() => {
+          setLoadingState(submitSignupBtn, false);
+          handleLoginSuccess(displayName, roleLabel);
+        }, 1300);
+      }
     });
   }
 
@@ -876,23 +995,55 @@ document.addEventListener('DOMContentLoaded', () => {
     toggleMode();
   }
 
-  // --- SOCIAL SSO BUTTONS ---
+  // --- SOCIAL SSO BUTTONS (Google, GitHub, Spotify, Apple) ---
   const ssoButtons = document.querySelectorAll('.sso-btn');
   ssoButtons.forEach(btn => {
-    btn.addEventListener('click', () => {
+    btn.addEventListener('click', async () => {
       playSound('click');
-      const provider = btn.innerText.trim();
-      showToast(`Connecting to ${provider} OAuth...`, 'info');
+      const isGoogle = btn.classList.contains('google') || btn.id === 'sso-google';
+      const isGithub = btn.classList.contains('github') || btn.id === 'sso-github';
+      const providerName = btn.innerText.trim();
 
-      btn.style.opacity = '0.6';
-      setTimeout(() => {
-        btn.style.opacity = '1';
-        handleLoginSuccess(`Alex (${provider})`, `Verified ${provider} Member`);
-      }, 1200);
+      if (auth && (isGoogle || isGithub)) {
+        try {
+          btn.style.opacity = '0.6';
+          showToast(`Opening ${providerName} sign-in popup...`, 'info');
+          const provider = isGoogle ? new firebase.auth.GoogleAuthProvider() : new firebase.auth.GithubAuthProvider();
+          
+          if (isGoogle) {
+            provider.addScope('profile');
+            provider.addScope('email');
+          }
+
+          const result = await auth.signInWithPopup(provider);
+          btn.style.opacity = '1';
+          const fbUser = result.user;
+          const token = await fbUser.getIdToken();
+          const name = fbUser.displayName || fbUser.email.split('@')[0];
+
+          handleLoginSuccess(name, `Verified ${providerName} Member`, true, {
+            email: fbUser.email,
+            uid: fbUser.uid,
+            token: token,
+            photoURL: fbUser.photoURL
+          });
+        } catch (error) {
+          btn.style.opacity = '1';
+          playSound('error');
+          showToast(formatFirebaseError(error), 'error', 5000);
+        }
+      } else {
+        showToast(`Connecting to ${providerName} OAuth...`, 'info');
+        btn.style.opacity = '0.6';
+        setTimeout(() => {
+          btn.style.opacity = '1';
+          handleLoginSuccess(`Alex (${providerName})`, `Verified ${providerName} Member`);
+        }, 1200);
+      }
     });
   });
 
-  // --- FORGOT PASSWORD MODAL ---
+  // --- FORGOT PASSWORD MODAL (Firebase sendPasswordResetEmail) ---
   const forgotLink = document.getElementById('forgot-password-link');
   const forgotModal = document.getElementById('forgot-modal');
   const closeModalBtn = document.getElementById('close-modal-btn');
@@ -923,16 +1074,39 @@ document.addEventListener('DOMContentLoaded', () => {
   if (closeForgotSuccessBtn) closeForgotSuccessBtn.addEventListener('click', closeForgotModal);
 
   if (sendResetBtn) {
-    sendResetBtn.addEventListener('click', () => {
+    sendResetBtn.addEventListener('click', async () => {
       if (!resetEmail.value || !resetEmail.value.includes('@')) {
-        showToast('Please enter a valid email', 'error');
+        showToast('Please enter a valid email address', 'error');
         playSound('error');
         return;
       }
       playSound('click');
-      document.getElementById('reset-sent-email').textContent = resetEmail.value;
-      forgotStep1.classList.add('hidden');
-      forgotStep2.classList.remove('hidden');
+      const email = resetEmail.value.trim();
+
+      if (auth) {
+        const originalText = sendResetBtn.textContent;
+        sendResetBtn.disabled = true;
+        sendResetBtn.textContent = 'Sending reset link...';
+
+        try {
+          await auth.sendPasswordResetEmail(email);
+          sendResetBtn.disabled = false;
+          sendResetBtn.textContent = originalText;
+          document.getElementById('reset-sent-email').textContent = email;
+          forgotStep1.classList.add('hidden');
+          forgotStep2.classList.remove('hidden');
+          showToast(`Password reset link dispatched to ${email}`, 'success');
+        } catch (error) {
+          sendResetBtn.disabled = false;
+          sendResetBtn.textContent = originalText;
+          playSound('error');
+          showToast(formatFirebaseError(error), 'error', 5000);
+        }
+      } else {
+        document.getElementById('reset-sent-email').textContent = email;
+        forgotStep1.classList.add('hidden');
+        forgotStep2.classList.remove('hidden');
+      }
     });
   }
 
@@ -943,19 +1117,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const dashRole = document.getElementById('dash-role');
   const logoutBtn = document.getElementById('logout-btn');
 
-  function handleLoginSuccess(username, role, broadcast = true) {
+  function handleLoginSuccess(username, role, broadcast = true, extraData = {}) {
     playSound('success');
     showToast(`Welcome, ${username}! Authenticated across all projects.`, 'success', 4000);
 
     const userData = {
       username: username,
       role: role,
-      token: 'sw_token_' + Math.random().toString(36).substr(2, 10),
+      token: extraData.token || ('sw_token_' + Math.random().toString(36).substr(2, 10)),
+      email: extraData.email || null,
+      uid: extraData.uid || null,
+      photoURL: extraData.photoURL || null,
       appId: state.activeAppId,
       authenticatedAt: new Date().toISOString()
     };
 
     state.user = userData;
+
+    // Update avatar image if user has custom photo
+    const userAvatarImg = document.getElementById('user-avatar-img');
+    if (userAvatarImg && userData.photoURL) {
+      userAvatarImg.src = userData.photoURL;
+    }
 
     // Save global SSO session locally
     try {
@@ -1036,10 +1219,17 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (logoutBtn) {
-    logoutBtn.addEventListener('click', () => {
+    logoutBtn.addEventListener('click', async () => {
       playSound('click');
       if (authChannel) {
         authChannel.postMessage({ type: 'SESSION_LOGOUT' });
+      }
+      if (auth && auth.currentUser) {
+        try {
+          await auth.signOut();
+        } catch (e) {
+          console.warn('[SoundWave Auth] Sign out error:', e);
+        }
       }
       handleLogoutLocal();
     });
@@ -1085,14 +1275,43 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // Check if active session already exists in localStorage on startup
-  try {
-    const existingSession = localStorage.getItem('soundwave_global_user');
-    if (existingSession && !isEmbedded && !redirectUri) {
-      const parsed = JSON.parse(existingSession);
-      console.log('[SoundWave SSO] Restoring session for:', parsed.username);
-      // Populate dashboard but leave card interactive
-    }
-  } catch (e) {}
+  // Firebase Auth State Observer (Auto-login / persistent SSO)
+  if (auth) {
+    auth.onAuthStateChanged(async (fbUser) => {
+      if (fbUser) {
+        console.log('[SoundWave Auth] User session active for:', fbUser.email);
+        try {
+          const token = await fbUser.getIdToken();
+          const displayName = fbUser.displayName || fbUser.email.split('@')[0];
+          
+          const userAvatarImg = document.getElementById('user-avatar-img');
+          if (userAvatarImg && fbUser.photoURL) {
+            userAvatarImg.src = fbUser.photoURL;
+          }
+
+          if (!state.user && !isEmbedded && !redirectUri) {
+            // Restore active session
+            handleLoginSuccess(displayName, 'Universal Member', false, {
+              email: fbUser.email,
+              uid: fbUser.uid,
+              token: token,
+              photoURL: fbUser.photoURL
+            });
+          }
+        } catch (err) {
+          console.warn('[SoundWave Auth] Token refresh error:', err);
+        }
+      }
+    });
+  } else {
+    // Check if active session already exists in localStorage on startup (offline fallback)
+    try {
+      const existingSession = localStorage.getItem('soundwave_global_user');
+      if (existingSession && !isEmbedded && !redirectUri) {
+        const parsed = JSON.parse(existingSession);
+        console.log('[SoundWave SSO] Restoring session for:', parsed.username);
+      }
+    } catch (e) {}
+  }
 
 });
