@@ -1,4 +1,12 @@
 {
+  "auth": {
+    "authorizedDomains": [
+      "localhost",
+      "soundwave-81419.firebaseapp.com",
+      "soundwave-81419.web.app",
+      "ujwal8156v.github.io"
+    ]
+  },
   "firestore": {
     "rules": "firestore.rules"
   },
