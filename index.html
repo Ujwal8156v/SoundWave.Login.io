@@ -145,8 +145,8 @@
           <span>Password</span>
         </button>
         <button class="tab-btn" data-tab="magic" id="tab-magic">
-          <i class="fa-solid fa-bolt"></i>
-          <span>Magic OTP</span>
+          <i class="fa-solid fa-phone"></i>
+          <span>Phone SMS</span>
         </button>
         <button class="tab-btn" data-tab="passkey" id="tab-passkey">
           <i class="fa-solid fa-fingerprint"></i>
@@ -208,26 +208,29 @@
         </button>
       </form>
 
-      <!-- TAB 2: MAGIC LINK & OTP FORM -->
+      <!-- TAB 2: PHONE SMS & OTP FORM (Firebase Phone Auth) -->
       <form id="magic-form" class="auth-form tab-content" novalidate>
         <div class="magic-intro">
-          <div class="magic-badge"><i class="fa-solid fa-shield-halved"></i> Passwordless Security</div>
-          <p>Enter your email to receive an instant 6-digit access code.</p>
+          <div class="magic-badge"><i class="fa-solid fa-shield-halved"></i> Phone Authentication</div>
+          <p>Enter your phone number with country code (e.g. +1 555-234-5678) for instant SMS login.</p>
         </div>
 
         <div class="input-group">
-          <label for="magic-email" class="input-label">Email Address</label>
+          <label for="phone-number-input" class="input-label">Phone Number (with Country Code)</label>
           <div class="input-field-wrapper">
-            <i class="input-icon fa-regular fa-envelope"></i>
-            <input type="email" id="magic-email" class="input-control" placeholder="user@soundwave.io" autocomplete="email" required />
+            <i class="input-icon fa-solid fa-phone"></i>
+            <input type="tel" id="phone-number-input" class="input-control" placeholder="+1 555-234-5678" autocomplete="tel" required />
           </div>
-          <span class="error-msg" id="magic-email-error">Enter a valid email address</span>
+          <span class="error-msg" id="phone-error">Please enter a valid phone number with country code</span>
         </div>
 
-        <!-- OTP 6-Digit Section (Hidden until requested) -->
+        <!-- reCAPTCHA Container for Firebase Phone Auth -->
+        <div id="recaptcha-container" class="recaptcha-wrapper"></div>
+
+        <!-- OTP 6-Digit Section (Hidden until SMS is sent) -->
         <div id="otp-section" class="otp-section hidden">
           <div class="label-row">
-            <label class="input-label">Enter 6-Digit Verification Pin</label>
+            <label class="input-label">Enter 6-Digit SMS Verification Pin</label>
             <button type="button" id="demo-fill-otp-btn" class="text-btn mini-btn"><i class="fa-solid fa-wand-magic-sparkles"></i> Auto Fill OTP</button>
           </div>
           <div class="otp-inputs" id="otp-inputs">
@@ -240,12 +243,12 @@
           </div>
           <div class="resend-wrapper">
             <span id="resend-timer-text">Resend code in <strong id="timer-count">30</strong>s</span>
-            <button type="button" id="resend-otp-btn" class="text-btn hidden">Resend Code</button>
+            <button type="button" id="resend-otp-btn" class="text-btn hidden">Resend SMS</button>
           </div>
         </div>
 
         <button type="submit" id="submit-magic-btn" class="btn-primary">
-          <span class="btn-text">Send Access Code</span>
+          <span class="btn-text">Send Verification SMS</span>
           <div class="spinner hidden"></div>
           <i class="fa-solid fa-paper-plane btn-arrow"></i>
         </button>
@@ -575,6 +578,7 @@
   <!-- Firebase Web SDK (v10.13.0 Compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-app-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.13.0/firebase-analytics-compat.js"></script>
 
   <!-- Main JavaScript File -->

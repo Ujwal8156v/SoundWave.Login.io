@@ -17,19 +17,50 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   let auth = null;
+  let db = null;
   let analytics = null;
+  let phoneConfirmationResult = null;
+  let recaptchaVerifier = null;
 
   try {
     if (typeof firebase !== 'undefined') {
       firebase.initializeApp(firebaseConfig);
       auth = firebase.auth();
+      if (firebase.firestore) {
+        db = firebase.firestore();
+      }
       if (firebase.analytics) {
         analytics = firebase.analytics();
       }
-      console.log('[SoundWave Auth] Firebase initialized for project:', firebaseConfig.projectId);
+      console.log('[SoundWave Auth] Firebase Auth & Firestore initialized for project:', firebaseConfig.projectId);
     }
   } catch (err) {
     console.warn('[SoundWave Auth] Firebase initialization:', err.message);
+  }
+
+  // Sync user profile data to Firestore database
+  async function syncUserProfileToFirestore(fbUser, role = 'Universal Member', extraData = {}) {
+    if (!db || !fbUser || !fbUser.uid) return;
+    try {
+      const userRef = db.collection('users').doc(fbUser.uid);
+      const userDoc = {
+        uid: fbUser.uid,
+        email: fbUser.email || extraData.email || null,
+        phoneNumber: fbUser.phoneNumber || extraData.phoneNumber || null,
+        displayName: fbUser.displayName || extraData.displayName || (fbUser.email ? fbUser.email.split('@')[0] : 'SoundWave Member'),
+        photoURL: fbUser.photoURL || extraData.photoURL || null,
+        role: role,
+        lastLoginAt: firebase.firestore.FieldValue.serverTimestamp(),
+        lastAppId: state.activeAppId,
+        connectedApps: ['soundwave-app', 'sw-music-app', 'stitch-editor', 'polycode-eval', 'ai-bro', 'soundwave-gear-store'],
+        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+      };
+
+      await userRef.set(userDoc, { merge: true });
+      console.log('[SoundWave Firestore] User document synchronized for:', fbUser.uid);
+    } catch (err) {
+      console.warn('[SoundWave Firestore] Sync warning:', err.message);
+    }
   }
 
   // Translate Firebase Error Codes into friendly user messages
@@ -43,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return 'This account has been disabled by security.';
       case 'auth/user-not-found':
       case 'auth/invalid-credential':
-        return 'Incorrect email or password.';
+        return 'Incorrect credentials. Please verify your details.';
       case 'auth/wrong-password':
         return 'Incorrect password. Please try again or reset your password.';
       case 'auth/email-already-in-use':
@@ -51,7 +82,7 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'auth/weak-password':
         return 'Password is too weak. Please use at least 6 characters.';
       case 'auth/popup-closed-by-user':
-        return 'Google sign-in popup was closed before completion.';
+        return 'Sign-in popup was closed before completion.';
       case 'auth/cancelled-popup-request':
         return 'Authentication popup request was cancelled.';
       case 'auth/popup-blocked':
@@ -59,7 +90,19 @@ document.addEventListener('DOMContentLoaded', () => {
       case 'auth/network-request-failed':
         return 'Network connection issue. Please check your internet connection.';
       case 'auth/operation-not-allowed':
-        return 'This sign-in provider is not enabled in Firebase Console yet.';
+        return 'This sign-in provider (Phone/Google/Email) is not enabled in Firebase Console yet.';
+      case 'auth/invalid-phone-number':
+        return 'Invalid phone number. Please include the country code (e.g. +1 555-234-5678 or +91 9876543210).';
+      case 'auth/missing-phone-number':
+        return 'Please enter your phone number with country code.';
+      case 'auth/quota-exceeded':
+        return 'SMS quota exceeded for this project. Please try again later or use Email/Google login.';
+      case 'auth/code-expired':
+        return 'The SMS verification code has expired. Please request a new code.';
+      case 'auth/invalid-verification-code':
+        return 'Incorrect 6-digit SMS verification code. Please check and try again.';
+      case 'auth/captcha-check-failed':
+        return 'reCAPTCHA verification failed. Please try again.';
       case 'auth/requires-recent-login':
         return 'Please sign in again to perform this sensitive action.';
       default:
@@ -637,9 +680,9 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   }
 
-  // --- TAB 2: MAGIC LINK & OTP LOGIC ---
+  // --- TAB 2: PHONE SMS AUTHENTICATION (Firebase Phone Auth) ---
   const magicForm = document.getElementById('magic-form');
-  const magicEmail = document.getElementById('magic-email');
+  const phoneInput = document.getElementById('phone-number-input');
   const otpSection = document.getElementById('otp-section');
   const otpInputs = document.querySelectorAll('.otp-box');
   const submitMagicBtn = document.getElementById('submit-magic-btn');
@@ -647,6 +690,28 @@ document.addEventListener('DOMContentLoaded', () => {
   const resendOtpBtn = document.getElementById('resend-otp-btn');
   const timerCount = document.getElementById('timer-count');
   let isOtpStep = false;
+
+  // Initialize reCAPTCHA for Phone Authentication
+  function setupRecaptcha() {
+    if (auth && !recaptchaVerifier) {
+      try {
+        recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+          'size': 'invisible',
+          'callback': () => {
+            console.log('[SoundWave Phone Auth] reCAPTCHA verified');
+          },
+          'expired-callback': () => {
+            showToast('reCAPTCHA expired. Please try sending SMS again.', 'warning');
+          }
+        });
+        recaptchaVerifier.render().catch(err => {
+          console.warn('[SoundWave Phone Auth] reCAPTCHA render warning:', err);
+        });
+      } catch (e) {
+        console.warn('[SoundWave Phone Auth] reCAPTCHA setup:', e.message);
+      }
+    }
+  }
 
   // Auto-focus progression for OTP inputs
   otpInputs.forEach((input, idx) => {
@@ -679,7 +744,7 @@ document.addEventListener('DOMContentLoaded', () => {
           if (otpInputs[i]) otpInputs[i].value = char;
         });
         otpInputs[5]?.focus();
-        showToast('Access code pasted!', 'info');
+        showToast('SMS code pasted!', 'info');
         triggerOtpVerification();
       }
     });
@@ -717,58 +782,128 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (resendOtpBtn) {
-    resendOtpBtn.addEventListener('click', () => {
+    resendOtpBtn.addEventListener('click', async () => {
       playSound('click');
-      state.currentOtp = Math.floor(100000 + Math.random() * 900000).toString();
-      showToast(`New code dispatched to ${magicEmail.value}! (Demo OTP: ${state.currentOtp})`, 'info');
-      const timerText = document.getElementById('resend-timer-text');
-      if (timerText) timerText.classList.remove('hidden');
-      startOtpTimer();
+      const phoneVal = phoneInput ? phoneInput.value.trim().replace(/[\s\-\(\)]/g, '') : '';
+      if (!phoneVal) return;
+
+      if (auth) {
+        try {
+          showToast(`Resending SMS verification to ${phoneVal}...`, 'info');
+          setupRecaptcha();
+          phoneConfirmationResult = await auth.signInWithPhoneNumber(phoneVal, recaptchaVerifier);
+          showToast(`New SMS code dispatched to ${phoneVal}!`, 'info');
+          const timerText = document.getElementById('resend-timer-text');
+          if (timerText) timerText.classList.remove('hidden');
+          startOtpTimer();
+        } catch (err) {
+          showToast(formatFirebaseError(err), 'error', 5000);
+        }
+      } else {
+        state.currentOtp = Math.floor(100000 + Math.random() * 900000).toString();
+        showToast(`New code dispatched to ${phoneVal}! (Demo OTP: ${state.currentOtp})`, 'info');
+        const timerText = document.getElementById('resend-timer-text');
+        if (timerText) timerText.classList.remove('hidden');
+        startOtpTimer();
+      }
     });
   }
 
   if (magicForm) {
-    magicForm.addEventListener('submit', (e) => {
+    magicForm.addEventListener('submit', async (e) => {
       e.preventDefault();
       if (!isOtpStep) {
-        if (!magicEmail.value || !magicEmail.value.includes('@')) {
-          magicEmail.closest('.input-group').classList.add('invalid');
+        const phoneVal = phoneInput ? phoneInput.value.trim() : '';
+        const cleanPhone = phoneVal.replace(/[\s\-\(\)]/g, '');
+
+        if (!cleanPhone || !/^\+[1-9]\d{1,14}$/.test(cleanPhone)) {
+          if (phoneInput) phoneInput.closest('.input-group').classList.add('invalid');
           playSound('error');
+          showToast('Please enter a valid phone number with country code (e.g. +1 555-234-5678 or +91 9876543210)', 'error', 6000);
           return;
         }
-        magicEmail.closest('.input-group').classList.remove('invalid');
+
+        if (phoneInput) phoneInput.closest('.input-group').classList.remove('invalid');
         playSound('click');
         setLoadingState(submitMagicBtn, true);
 
-        setTimeout(() => {
-          setLoadingState(submitMagicBtn, false);
-          isOtpStep = true;
-          otpSection.classList.remove('hidden');
-          submitMagicBtn.querySelector('.btn-text').textContent = 'Verify & Authenticate';
-          showToast(`Access code sent to ${magicEmail.value}! (Demo OTP: ${state.currentOtp})`, 'info', 6000);
-          startOtpTimer();
-          otpInputs[0]?.focus();
-        }, 1000);
+        if (auth) {
+          try {
+            setupRecaptcha();
+            phoneConfirmationResult = await auth.signInWithPhoneNumber(cleanPhone, recaptchaVerifier);
+            setLoadingState(submitMagicBtn, false);
+            isOtpStep = true;
+            otpSection.classList.remove('hidden');
+            submitMagicBtn.querySelector('.btn-text').textContent = 'Verify SMS Code';
+            showToast(`SMS verification code sent to ${cleanPhone}!`, 'info', 6000);
+            startOtpTimer();
+            otpInputs[0]?.focus();
+          } catch (error) {
+            setLoadingState(submitMagicBtn, false);
+            playSound('error');
+            if (recaptchaVerifier) {
+              try { recaptchaVerifier.clear(); recaptchaVerifier = null; } catch(e){}
+            }
+            showToast(formatFirebaseError(error), 'error', 6000);
+          }
+        } else {
+          // Fallback simulation
+          setTimeout(() => {
+            setLoadingState(submitMagicBtn, false);
+            isOtpStep = true;
+            otpSection.classList.remove('hidden');
+            submitMagicBtn.querySelector('.btn-text').textContent = 'Verify SMS Code';
+            showToast(`Demo SMS code dispatched to ${cleanPhone}! (Demo OTP: ${state.currentOtp})`, 'info', 6000);
+            startOtpTimer();
+            otpInputs[0]?.focus();
+          }, 1000);
+        }
       } else {
         triggerOtpVerification();
       }
     });
   }
 
-  function triggerOtpVerification() {
+  async function triggerOtpVerification() {
     const enteredOtp = Array.from(otpInputs).map(i => i.value).join('');
     if (enteredOtp.length < 6) {
       playSound('error');
-      showToast('Please enter the full 6-digit access code', 'error');
+      showToast('Please enter the full 6-digit SMS verification code', 'error');
       return;
     }
 
     setLoadingState(submitMagicBtn, true);
-    setTimeout(() => {
-      setLoadingState(submitMagicBtn, false);
-      const userPrefix = magicEmail.value.split('@')[0] || 'Member';
-      handleLoginSuccess(userPrefix, 'OTP Verified User');
-    }, 1200);
+
+    if (auth && phoneConfirmationResult) {
+      try {
+        const userCredential = await phoneConfirmationResult.confirm(enteredOtp);
+        setLoadingState(submitMagicBtn, false);
+        const fbUser = userCredential.user;
+        const token = await fbUser.getIdToken();
+        const displayName = fbUser.displayName || fbUser.phoneNumber || 'SoundWave Mobile User';
+
+        await syncUserProfileToFirestore(fbUser, 'Phone Verified User', {
+          phoneNumber: fbUser.phoneNumber,
+          displayName: displayName
+        });
+
+        handleLoginSuccess(displayName, 'Phone Verified User', true, {
+          phoneNumber: fbUser.phoneNumber,
+          uid: fbUser.uid,
+          token: token
+        });
+      } catch (error) {
+        setLoadingState(submitMagicBtn, false);
+        playSound('error');
+        showToast(formatFirebaseError(error), 'error', 5000);
+      }
+    } else {
+      setTimeout(() => {
+        setLoadingState(submitMagicBtn, false);
+        const userPrefix = (phoneInput && phoneInput.value) || 'Mobile User';
+        handleLoginSuccess(userPrefix, 'OTP Verified User');
+      }, 1200);
+    }
   }
 
   // --- TAB 3: PASSKEY & BIOMETRIC AUTH ---
@@ -1133,6 +1268,18 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     state.user = userData;
+
+    // Synchronize user profile into Firestore database
+    if (auth && (auth.currentUser || extraData.uid)) {
+      const userToSync = auth.currentUser || {
+        uid: extraData.uid,
+        email: extraData.email,
+        phoneNumber: extraData.phoneNumber,
+        displayName: username,
+        photoURL: extraData.photoURL
+      };
+      syncUserProfileToFirestore(userToSync, role, extraData);
+    }
 
     // Update avatar image if user has custom photo
     const userAvatarImg = document.getElementById('user-avatar-img');
